@@ -8,7 +8,6 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 connect();
 
-
 const app = express();
 
 app.use(cors());
@@ -20,8 +19,6 @@ app.use(cookieParser());
 app.use('/users', userRoutes);
 app.use('/projects', projectRoutes);
 app.use("/ai", aiRoutes)
-
-
 
 app.get('/', (req, res) => {
     res.send('Hello World!');

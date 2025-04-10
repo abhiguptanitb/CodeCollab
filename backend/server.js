@@ -9,15 +9,12 @@ import { generateResult } from './services/ai.service.js';
 
 const port = process.env.PORT || 3000;
 
-
-
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
         origin: '*'
     }
 });
-
 
 io.use(async (socket, next) => {
 
@@ -44,7 +41,6 @@ io.use(async (socket, next) => {
             return next(new Error('Authentication error'))
         }
 
-
         socket.user = decoded;
 
         next();
@@ -59,10 +55,7 @@ io.use(async (socket, next) => {
 io.on('connection', socket => {
     socket.roomId = socket.project._id.toString()
 
-
     console.log('a user connected');
-
-
 
     socket.join(socket.roomId);
 
@@ -75,11 +68,9 @@ io.on('connection', socket => {
 
         if (aiIsPresentInMessage) {
 
-
             const prompt = message.replace('@ai', '');
 
             const result = await generateResult(prompt);
-
 
             io.to(socket.roomId).emit('project-message', {
                 message: result,
@@ -89,11 +80,8 @@ io.on('connection', socket => {
                 }
             })
 
-
             return
         }
-
-
     })
 
     socket.on('disconnect', () => {
@@ -101,9 +89,6 @@ io.on('connection', socket => {
         socket.leave(socket.roomId)
     });
 });
-
-
-
 
 server.listen(port, () => {
     console.log(`Server is running on port ${port}`);
