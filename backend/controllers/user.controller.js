@@ -5,7 +5,6 @@ import redisClient from '../services/redis.service.js';
 
 
 export const createUserController = async (req, res) => {
-
     const errors = validationResult(req);
 
     if (!errors.isEmpty()) {
@@ -20,9 +19,12 @@ export const createUserController = async (req, res) => {
 
         res.status(201).json({ user, token });
     } catch (error) {
-        res.status(400).send(error.message);
+        if (error.code === 11000) { // MongoDB duplicate key error
+            return res.status(400).json({ message: 'User already exists' });
+        }
+        res.status(400).json({ message: error.message });
     }
-}
+};
 
 export const loginController = async (req, res) => {
     const errors = validationResult(req);
