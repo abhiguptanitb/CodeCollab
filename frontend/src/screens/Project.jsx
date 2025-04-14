@@ -170,6 +170,45 @@ const Project = () => {
         })
     }
 
+    const runCode = async () => {
+        if (!webContainer || !fileTree || Object.keys(fileTree).length === 0) {
+          console.error("webContainer or fileTree is not available");
+          return;
+        }
+      
+        try {
+          await webContainer.mount(fileTree);
+      
+          const installProcess = await webContainer.spawn("npm", ["install"]);
+          installProcess.output.pipeTo(new WritableStream({
+            write(chunk) {
+              console.log(chunk);
+            }
+          }));
+      
+          if (runProcess) {
+            runProcess.kill();
+          }
+      
+          const tempRunProcess = await webContainer.spawn("npm", ["start"]);
+          tempRunProcess.output.pipeTo(new WritableStream({
+            write(chunk) {
+              console.log(chunk);
+            }
+          }));
+      
+          setRunProcess(tempRunProcess);
+      
+          webContainer.on('server-ready', (port, url) => {
+            console.log(port, url);
+            setIframeUrl(url);
+          });
+        } catch (err) {
+          console.error("Error while running project:", err);
+        }
+      };
+      
+
 
     return (
         <main className='h-screen w-screen flex'>
@@ -289,48 +328,17 @@ const Project = () => {
 
                         <div className="actions flex gap-2">
                             <button
-                                onClick={async () => {
-                                    if (!webContainer || !fileTree) {
-                                        console.error("webContainer or fileTree is not available");
-                                        return;
-                                    }
-
-                                    try {
-                                        await webContainer.mount(fileTree);
-
-                                        const installProcess = await webContainer.spawn("npm", ["install"]);
-                                        installProcess.output.pipeTo(new WritableStream({
-                                            write(chunk) {
-                                                console.log(chunk);
-                                            }
-                                        }));
-
-                                        if (runProcess) {
-                                            runProcess.kill();
-                                        }
-
-                                        const tempRunProcess = await webContainer.spawn("npm", ["start"]);
-                                        tempRunProcess.output.pipeTo(new WritableStream({
-                                            write(chunk) {
-                                                console.log(chunk);
-                                            }
-                                        }));
-
-                                        setRunProcess(tempRunProcess);
-
-                                        webContainer.on('server-ready', (port, url) => {
-                                            console.log(port, url);
-                                            setIframeUrl(url);
-                                        });
-                                    } catch (err) {
-                                        console.error("Error while running project:", err);
-                                    }
-                                }}
-                                className='p-2 px-4 bg-slate-300 text-white'
-                            >
-                                run
+                                onClick={runCode}
+                                disabled={!webContainer || !fileTree || Object.keys(fileTree).length === 0}
+                                className={`p-2 px-4 text-white ${
+                                    (!webContainer || !fileTree || Object.keys(fileTree).length === 0)
+                                    ? 'bg-gray-400 cursor-not-allowed'
+                                    : 'bg-slate-500 hover:bg-slate-600'
+                                }`}
+                                >
+                                Run
                             </button>
-
+                            
                         </div>
                     </div>
                     <div className="bottom flex flex-grow max-w-full shrink overflow-auto">
