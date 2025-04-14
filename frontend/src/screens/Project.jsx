@@ -341,6 +341,11 @@ const Project = () => {
                                 >
                                 Run
                             </button>
+                            {/* ${
+                                    (!webContainer || !fileTree || Object.keys(fileTree).length === 0)
+                                    ? 'bg-gray-400 cursor-not-allowed'
+                                    : 'bg-slate-500 hover:bg-slate-600'
+                                } */}
                             
                         </div>
                     </div>
