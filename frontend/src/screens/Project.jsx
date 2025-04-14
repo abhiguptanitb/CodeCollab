@@ -108,56 +108,59 @@ const Project = () => {
     }
 
     useEffect(() => {
-
-        initializeSocket(project._id)
-
+        initializeSocket(project._id);
+    
         if (!webContainer) {
-            getWebContainer().then(container => {
-                setWebContainer(container)
-                console.log("container started")
-            })
+            getWebContainer()
+                .then((container) => {
+                    setWebContainer(container);
+                    console.log("WebContainer initialized");
+                })
+                .catch((err) => {
+                    console.error("Error initializing WebContainer:", err);
+                });
         }
-
-        receiveMessage('project-message', data => {
+    
+        receiveMessage("project-message", (data) => {
             console.log(data);
-        
-            if (data.sender._id === 'ai') {
+    
+            if (data.sender._id === "ai") {
                 const message = JSON.parse(data.message);
                 console.log(message);
-        
-                // Only mount if both webContainer and message.fileTree exist
+    
                 if (webContainer && message.fileTree) {
-                    webContainer.mount(message.fileTree);
+                    webContainer.mount(message.fileTree).catch((err) => {
+                        console.error("Error mounting fileTree:", err);
+                    });
                     setFileTree(message.fileTree);
                 }
-        
-                setMessages(prevMessages => [...prevMessages, data]);
+    
+                setMessages((prevMessages) => [...prevMessages, data]);
             } else {
-                setMessages(prevMessages => [...prevMessages, data]);
+                setMessages((prevMessages) => [...prevMessages, data]);
             }
         });
-        
-
-
-        axios.get(`/projects/get-project/${location.state.project._id}`).then(res => {
-
-            console.log(res.data.project)
-
-            setProject(res.data.project)
-            setFileTree(res.data.project.fileTree || {})
-        })
-
-        axios.get('/users/all').then(res => {
-
-            setUsers(res.data.users)
-
-        }).catch(err => {
-
-            console.log(err)
-
-        })
-
-    }, [])
+    
+        axios
+            .get(`/projects/get-project/${location.state.project._id}`)
+            .then((res) => {
+                console.log(res.data.project);
+                setProject(res.data.project);
+                setFileTree(res.data.project.fileTree || {});
+            })
+            .catch((err) => {
+                console.error("Error fetching project:", err);
+            });
+    
+        axios
+            .get("/users/all")
+            .then((res) => {
+                setUsers(res.data.users);
+            })
+            .catch((err) => {
+                console.error("Error fetching users:", err);
+            });
+    }, []);
 
     function saveFileTree(ft) {
         axios.put('/projects/update-file-tree', {
@@ -171,43 +174,47 @@ const Project = () => {
     }
 
     const runCode = async () => {
-        if (!webContainer || !fileTree || Object.keys(fileTree).length === 0) {
-          console.error("webContainer or fileTree is not available");
-          return;
-        }
-      
-        try {
-          await webContainer.mount(fileTree);
-      
-          const installProcess = await webContainer.spawn("npm", ["install"]);
-          installProcess.output.pipeTo(new WritableStream({
-            write(chunk) {
-              console.log(chunk);
+            if (!webContainer) {
+                console.error("webContainer is not initialized");
+                return;
             }
-          }));
-      
-          if (runProcess) {
-            runProcess.kill();
-          }
-      
-          const tempRunProcess = await webContainer.spawn("npm", ["start"]);
-          tempRunProcess.output.pipeTo(new WritableStream({
-            write(chunk) {
-              console.log(chunk);
+        
+            if (!fileTree || Object.keys(fileTree).length === 0) {
+                console.error("fileTree is empty or not available");
+                return;
             }
-          }));
-      
-          setRunProcess(tempRunProcess);
-      
-          webContainer.on('server-ready', (port, url) => {
-            console.log(port, url);
-            setIframeUrl(url);
-          });
-        } catch (err) {
-          console.error("Error while running project:", err);
-        }
-      };
-      
+        
+            try {
+                await webContainer.mount(fileTree);
+            
+                const installProcess = await webContainer.spawn("npm", ["install"]);
+                installProcess.output.pipeTo(new WritableStream({
+                    write(chunk) {
+                    console.log(chunk);
+                    }
+                }));
+            
+                if (runProcess) {
+                    runProcess.kill();
+                }
+            
+                const tempRunProcess = await webContainer.spawn("npm", ["start"]);
+                tempRunProcess.output.pipeTo(new WritableStream({
+                    write(chunk) {
+                    console.log(chunk);
+                    }
+                }));
+            
+                setRunProcess(tempRunProcess);
+            
+                webContainer.on('server-ready', (port, url) => {
+                    console.log(port, url);
+                    setIframeUrl(url);
+                });
+            } catch (err) {
+                console.error("Error while running project:", err);
+            }
+        };
 
 
     return (
