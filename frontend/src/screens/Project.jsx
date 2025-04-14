@@ -337,7 +337,7 @@ const Project = () => {
                             <button
                                 onClick={runCode}
                                 // disabled={!webContainer || !fileTree || Object.keys(fileTree).length === 0}
-                                className={`p-2 px-4 text-white `}
+                                className={`p-2 px-4 text-white bg-gray-500 `}
                                 >
                                 Run
                             </button>
