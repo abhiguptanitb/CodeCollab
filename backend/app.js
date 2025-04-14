@@ -10,7 +10,10 @@ connect();
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+    origin: "https://chat-application-with-ai.onrender.com",
+    credentials: true
+}));  
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
