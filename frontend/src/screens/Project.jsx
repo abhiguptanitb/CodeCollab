@@ -336,7 +336,7 @@ const Project = () => {
                         <div className="actions flex gap-2">
                             <button
                                 onClick={runCode}
-                                disabled={!webContainer || !fileTree || Object.keys(fileTree).length === 0}
+                                // disabled={!webContainer || !fileTree || Object.keys(fileTree).length === 0}
                                 className={`p-2 px-4 text-white ${
                                     (!webContainer || !fileTree || Object.keys(fileTree).length === 0)
                                     ? 'bg-gray-400 cursor-not-allowed'
