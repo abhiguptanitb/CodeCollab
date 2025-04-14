@@ -119,21 +119,24 @@ const Project = () => {
         }
 
         receiveMessage('project-message', data => {
-
-            console.log(data)
-            
-            if (data.sender._id == 'ai') {
-                const message = JSON.parse(data.message)
-                console.log(message)
-                webContainer?.mount(message.fileTree)
-                if (message.fileTree) {
-                    setFileTree(message.fileTree || {})
+            console.log(data);
+        
+            if (data.sender._id === 'ai') {
+                const message = JSON.parse(data.message);
+                console.log(message);
+        
+                // Only mount if both webContainer and message.fileTree exist
+                if (webContainer && message.fileTree) {
+                    webContainer.mount(message.fileTree);
+                    setFileTree(message.fileTree);
                 }
-                setMessages(prevMessages => [ ...prevMessages, data ]) // Update messages state
+        
+                setMessages(prevMessages => [...prevMessages, data]);
             } else {
-                setMessages(prevMessages => [ ...prevMessages, data ]) // Update messages state
+                setMessages(prevMessages => [...prevMessages, data]);
             }
-        })
+        });
+        
 
 
         axios.get(`/projects/get-project/${location.state.project._id}`).then(res => {
@@ -287,39 +290,47 @@ const Project = () => {
                         <div className="actions flex gap-2">
                             <button
                                 onClick={async () => {
-                                    await webContainer.mount(fileTree)
-
-                                    const installProcess = await webContainer.spawn("npm", [ "install" ])
-
-                                    installProcess.output.pipeTo(new WritableStream({
-                                        write(chunk) {
-                                            console.log(chunk)
-                                        }
-                                    }))
-
-                                    if (runProcess) {
-                                        runProcess.kill()
+                                    if (!webContainer || !fileTree) {
+                                        console.error("webContainer or fileTree is not available");
+                                        return;
                                     }
 
-                                    let tempRunProcess = await webContainer.spawn("npm", [ "start" ]);
+                                    try {
+                                        await webContainer.mount(fileTree);
 
-                                    tempRunProcess.output.pipeTo(new WritableStream({
-                                        write(chunk) {
-                                            console.log(chunk)
+                                        const installProcess = await webContainer.spawn("npm", ["install"]);
+                                        installProcess.output.pipeTo(new WritableStream({
+                                            write(chunk) {
+                                                console.log(chunk);
+                                            }
+                                        }));
+
+                                        if (runProcess) {
+                                            runProcess.kill();
                                         }
-                                    }))
 
-                                    setRunProcess(tempRunProcess)
+                                        const tempRunProcess = await webContainer.spawn("npm", ["start"]);
+                                        tempRunProcess.output.pipeTo(new WritableStream({
+                                            write(chunk) {
+                                                console.log(chunk);
+                                            }
+                                        }));
 
-                                    webContainer.on('server-ready', (port, url) => {
-                                        console.log(port, url)
-                                        setIframeUrl(url)
-                                    })
+                                        setRunProcess(tempRunProcess);
+
+                                        webContainer.on('server-ready', (port, url) => {
+                                            console.log(port, url);
+                                            setIframeUrl(url);
+                                        });
+                                    } catch (err) {
+                                        console.error("Error while running project:", err);
+                                    }
                                 }}
                                 className='p-2 px-4 bg-slate-300 text-white'
                             >
                                 run
                             </button>
+
                         </div>
                     </div>
                     <div className="bottom flex flex-grow max-w-full shrink overflow-auto">
