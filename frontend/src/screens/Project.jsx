@@ -337,11 +337,7 @@ const Project = () => {
                             <button
                                 onClick={runCode}
                                 // disabled={!webContainer || !fileTree || Object.keys(fileTree).length === 0}
-                                className={`p-2 px-4 text-white ${
-                                    (!webContainer || !fileTree || Object.keys(fileTree).length === 0)
-                                    ? 'bg-gray-400 cursor-not-allowed'
-                                    : 'bg-slate-500 hover:bg-slate-600'
-                                }`}
+                                className={`p-2 px-4 text-white `}
                                 >
                                 Run
                             </button>
