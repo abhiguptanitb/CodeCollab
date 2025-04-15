@@ -336,16 +336,15 @@ const Project = () => {
                         <div className="actions flex gap-2">
                             <button
                                 onClick={runCode}
-                                // disabled={!webContainer || !fileTree || Object.keys(fileTree).length === 0}
-                                className={`p-2 px-4 text-white bg-gray-500 `}
-                                >
-                                Run
-                            </button>
-                            {/* ${
+                                disabled={!webContainer || !fileTree || Object.keys(fileTree).length === 0}
+                                className={`p-2 px-4 text-white  ${
                                     (!webContainer || !fileTree || Object.keys(fileTree).length === 0)
                                     ? 'bg-gray-400 cursor-not-allowed'
                                     : 'bg-slate-500 hover:bg-slate-600'
-                                } */}
+                                } `}
+                                >
+                                Run
+                            </button>
                             
                         </div>
                     </div>
