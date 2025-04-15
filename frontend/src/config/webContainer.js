@@ -6,9 +6,13 @@ let webContainerInstance = null;
 export const getWebContainer = async () => {
     if (webContainerInstance === null) {
         console.log("Creating new WebContainer instance...");
-        webContainerInstance = await WebContainer.boot();
-        console.log("WebContainer instance created");
+        try {
+            webContainerInstance = await WebContainer.boot();
+            console.log("WebContainer instance created");
+        } catch (error) {
+            console.error("Failed to boot WebContainer:", error);
+        }
     }
-    console.log("WebContainer instance created:");
+    console.log("Returning WebContainer instance");
     return webContainerInstance;
-}
+};
