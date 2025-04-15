@@ -44,6 +44,7 @@ const Project = () => {
     const [ openFiles, setOpenFiles ] = useState([])
 
     const [ webContainer, setWebContainer ] = useState(null)
+    const webContainerRef = useRef(null);
     const [ iframeUrl, setIframeUrl ] = useState(null)
 
     const [ runProcess, setRunProcess ] = useState(null)
@@ -110,16 +111,29 @@ const Project = () => {
     useEffect(() => {
         initializeSocket(project._id);
     
-        if (!webContainer) {
+        // if (!webContainer) {
+        //     getWebContainer()
+        //         .then((container) => {
+        //             setWebContainer(container);
+        //             console.log("WebContainer initialized");
+        //         })
+        //         .catch((err) => {
+        //             console.error("Error initializing WebContainer:", err);
+        //         });
+        // }
+
+        if (!webContainerRef.current) {
             getWebContainer()
                 .then((container) => {
-                    setWebContainer(container);
+                    webContainerRef.current = container; // ✅ set ref immediately
+                    setWebContainer(container); // optional
                     console.log("WebContainer initialized");
                 })
                 .catch((err) => {
                     console.error("Error initializing WebContainer:", err);
                 });
         }
+        
     
         receiveMessage("project-message", (data) => {
             console.log(data);
@@ -173,49 +187,93 @@ const Project = () => {
         })
     }
 
+    // const runCode = async () => {
+    //         if (!webContainer) {
+    //             console.error("webContainer is not initialized");
+    //             return;
+    //         }
+        
+    //         if (!fileTree || Object.keys(fileTree).length === 0) {
+    //             console.error("fileTree is empty or not available");
+    //             return;
+    //         }
+        
+    //         try {
+    //             await webContainer.mount(fileTree);
+            
+    //             const installProcess = await webContainer.spawn("npm", ["install"]);
+    //             installProcess.output.pipeTo(new WritableStream({
+    //                 write(chunk) {
+    //                 console.log(chunk);
+    //                 }
+    //             }));
+            
+    //             if (runProcess) {
+    //                 runProcess.kill();
+    //             }
+            
+    //             const tempRunProcess = await webContainer.spawn("npm", ["start"]);
+    //             tempRunProcess.output.pipeTo(new WritableStream({
+    //                 write(chunk) {
+    //                 console.log(chunk);
+    //                 }
+    //             }));
+            
+    //             setRunProcess(tempRunProcess);
+            
+    //             webContainer.on('server-ready', (port, url) => {
+    //                 console.log(port, url);
+    //                 setIframeUrl(url);
+    //             });
+    //         } catch (err) {
+    //             console.error("Error while running project:", err);
+    //         }
+    //     };
     const runCode = async () => {
-            if (!webContainer) {
-                console.error("webContainer is not initialized");
-                return;
-            }
+        const container = webContainerRef.current;
         
-            if (!fileTree || Object.keys(fileTree).length === 0) {
-                console.error("fileTree is empty or not available");
-                return;
-            }
-        
-            try {
-                await webContainer.mount(fileTree);
-            
-                const installProcess = await webContainer.spawn("npm", ["install"]);
-                installProcess.output.pipeTo(new WritableStream({
-                    write(chunk) {
+        if (!container) {
+            console.error("webContainer is not initialized");
+            return;
+        }
+    
+        if (!fileTree || Object.keys(fileTree).length === 0) {
+            console.error("fileTree is empty or not available");
+            return;
+        }
+    
+        try {
+            await container.mount(fileTree);
+    
+            const installProcess = await container.spawn("npm", ["install"]);
+            installProcess.output.pipeTo(new WritableStream({
+                write(chunk) {
                     console.log(chunk);
-                    }
-                }));
-            
-                if (runProcess) {
-                    runProcess.kill();
                 }
-            
-                const tempRunProcess = await webContainer.spawn("npm", ["start"]);
-                tempRunProcess.output.pipeTo(new WritableStream({
-                    write(chunk) {
-                    console.log(chunk);
-                    }
-                }));
-            
-                setRunProcess(tempRunProcess);
-            
-                webContainer.on('server-ready', (port, url) => {
-                    console.log(port, url);
-                    setIframeUrl(url);
-                });
-            } catch (err) {
-                console.error("Error while running project:", err);
+            }));
+    
+            if (runProcess) {
+                runProcess.kill();
             }
-        };
-
+    
+            const tempRunProcess = await container.spawn("npm", ["start"]);
+            tempRunProcess.output.pipeTo(new WritableStream({
+                write(chunk) {
+                    console.log(chunk);
+                }
+            }));
+    
+            setRunProcess(tempRunProcess);
+    
+            container.on('server-ready', (port, url) => {
+                console.log(port, url);
+                setIframeUrl(url);
+            });
+        } catch (err) {
+            console.error("Error while running project:", err);
+        }
+    };
+    
 
     return (
         <main className='h-screen w-screen flex'>
