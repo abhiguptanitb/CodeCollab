@@ -179,6 +179,24 @@ Cross-Origin-Embedder-Policy: require-corp
 
 ---
 
+## ⚠️ Deployment Environment Notice
+
+> **Note:**  
+> Real-time code execution using **WebContainers** is fully supported in **local development**.  
+> On deployed platforms, this feature may be **restricted or non-functional** due to browser sandboxing and cross-origin isolation requirements.
+>
+> ✅ To experience full functionality:
+> - Clone the repository and run the project locally using `npm start`
+> - Use a **Chromium-based browser** (like Chrome or Edge)
+>
+> ❌ May not work as expected on:
+> - Hosted platforms without proper cross-origin headers
+> - Browsers like **Firefox** or **Safari**
+>
+> 📚 For technical details, refer to [WebContainer documentation](https://webcontainers.io/)
+
+---
+
 ## 🧑‍💻 Usage
 
 1. Register or login.
