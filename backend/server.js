@@ -11,7 +11,7 @@ const port = process.env.PORT || 3000;
 
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: {
+    cors: { 
         origin: '*'
     }
 });
@@ -72,13 +72,60 @@ io.on('connection', socket => {
 
             const result = await generateResult(prompt);
 
-            io.to(socket.roomId).emit('project-message', {
-                message: result,
-                sender: {
-                    _id: 'ai',
-                    email: 'AI'
+            try {
+                console.log("Raw AI result:", result);
+                
+                // Clean the response - remove any extra text or escape characters
+                let cleanResult = result.trim();
+                
+                // Try to extract JSON from the response if it's wrapped in other text
+                const jsonMatch = cleanResult.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    cleanResult = jsonMatch[0];
                 }
-            })
+                
+                // Try to parse the AI response as JSON
+                const aiResponse = JSON.parse(cleanResult);
+                console.log("Parsed AI response:", aiResponse);
+                
+                // If the response contains a fileTree, update the project
+                if (aiResponse.fileTree) {
+                    console.log("FileTree found, updating project...");
+                    const project = await projectModel.findById(socket.project._id);
+                    if (project) {
+                        project.fileTree = aiResponse.fileTree;
+                        await project.save();
+                        
+                        // Emit the updated file tree to all clients
+                        io.to(socket.roomId).emit('file-tree-updated', {
+                            fileTree: aiResponse.fileTree
+                        });
+                    }
+                }
+
+                // Send the AI response (either text or parsed JSON)
+                io.to(socket.roomId).emit('project-message', {
+                    message: aiResponse.text || cleanResult,
+                    sender: {
+                        _id: 'ai',
+                        email: 'AI'
+                    },
+                    timestamp: new Date().toISOString()
+                });
+
+            } catch (parseError) {
+                // If parsing fails, send the raw response
+                console.log('AI response is not valid JSON, sending as text:', parseError.message);
+                console.log('Raw result that failed to parse:', result);
+                io.to(socket.roomId).emit('project-message', {
+                    message: result,
+                    sender: {
+                        _id: 'ai',
+                        email: 'AI'
+                    },
+                    timestamp: new Date().toISOString()
+                });
+            }
 
             return
         }

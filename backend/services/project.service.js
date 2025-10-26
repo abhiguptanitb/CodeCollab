@@ -8,12 +8,31 @@ export const createProject = async ({ name, userId }) => {
     if (!userId) {
         throw new Error('UserId is required');
     }
+    
+    console.log('Creating project with name:', name, 'for user:', userId);
+    
+    // Check if project already exists for this specific user
+    const existingProject = await projectModel.findOne({ 
+        name: name.trim(), 
+        createdBy: userId 
+    });
+    if (existingProject) {
+        console.log('Project already exists for this user:', existingProject);
+        throw new Error('You already have a project with this name');
+    }
+    
     let project;
     try {
-        project = await projectModel.create({ name, users: [userId] });
+        project = await projectModel.create({ 
+            name: name.trim(), 
+            users: [userId],
+            createdBy: userId
+        });
+        console.log('Project created successfully:', project);
     } catch (error) {
+        console.error('Error creating project:', error);
         if (error.code === 11000) {
-            throw new Error('Project name already exists');
+            throw new Error('You already have a project with this name');
         }
         throw error;
     }
@@ -24,7 +43,9 @@ export const getAllProjectByUserId = async ({ userId }) => {
     if (!userId) {
         throw new Error('UserId is required');
     }
-    const allUserProjects = await projectModel.find({ users: userId });
+    const allUserProjects = await projectModel.find({ users: userId })
+        .populate('createdBy', 'email')
+        .populate('users', 'email');
     return allUserProjects;
 };
 
@@ -103,4 +124,11 @@ export const deleteProject = async ({ projectId, userId }) => {
         throw new Error('User not belong to this project');
     }
     await projectModel.deleteOne({ _id: projectId });
+};
+
+// Helper function to clear all projects (for development)
+export const deleteAllProjects = async () => {
+    const result = await projectModel.deleteMany({});
+    console.log('Deleted all projects:', result);
+    return result;
 };

@@ -4,10 +4,8 @@ import mongoose from 'mongoose';
 const projectSchema = new mongoose.Schema({
     name: {
         type: String,
-        lowercase: true,
         required: true,
         trim: true,
-        unique: [ true, 'Project name must be unique' ],
     },
     users: [
         {
@@ -19,8 +17,16 @@ const projectSchema = new mongoose.Schema({
         type: Object,
         default: {}
     },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'user',
+        required: true
+    }
 
 })
+
+// Create compound index to ensure unique project names per user
+projectSchema.index({ name: 1, createdBy: 1 }, { unique: true });
 
 
 const Project = mongoose.model('project', projectSchema)

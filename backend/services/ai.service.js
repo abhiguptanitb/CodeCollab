@@ -1,100 +1,74 @@
 import { GoogleGenerativeAI } from "@google/generative-ai"
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY);
+
 const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.5-flash",
     generationConfig: {
         responseMimeType: "application/json",
         temperature: 0.4,
     },
     systemInstruction: `You are an expert in MERN and Development. You have an experience of 10 years in the development. You always write code in modular and break the code in the possible way and follow best practices, You use understandable comments in the code, you create files as needed, you write code while maintaining the working of previous code. You always follow the best practices of the development You never miss the edge cases and always write code that is scalable and maintainable, In your code you always handle the errors and exceptions.
     
+    CRITICAL: You must respond with valid JSON only. No extra text, no escape characters, no malformed JSON.
+    
     Examples: 
 
     <example>
-
+    user: Create an express application 
     response: {
-
-        "text": "this is you fileTree structure of the express server",
+        "text": "This is your basic Express application with app.js and package.json files.",
         "fileTree": {
             "app.js": {
-                file: {
-                    contents: "
-                        const express = require('express');
-
-                        const app = express();
-
-
-                        app.get('/', (req, res) => {
-                            res.send('Hello World!');
-                        });
-
-
-                        app.listen(3000, () => {
-                            console.log('Server is running on port 3000');
-                        })
-                    "            
-                },
+                "file": {
+                    "contents": "const express = require('express');\\n\\nconst app = express();\\n\\napp.get('/', (req, res) => {\\n    res.send('Hello World!');\\n});\\n\\napp.listen(3000, () => {\\n    console.log('Server is running on port 3000');\\n});"
+                }
             },
-
             "package.json": {
-                file: {
-                    contents: "
-
-                    {
-                        "name": "temp-server",
-                        "version": "1.0.0",
-                        "main": "index.js",
-                        "scripts": {
-                            "test": "echo \"Error: no test specified\" && exit 1"
-                        },
-                        "keywords": [],
-                        "author": "",
-                        "license": "ISC",
-                        "description": "",
-                        "dependencies": {
-                            "express": "^4.21.2"
-                        }
-                    }                
-                    "
-                },
-            },
-        },
-        "buildCommand": {
-            mainItem: "npm",
-                commands: [ "install" ]
-        },
-
-        "startCommand": {
-            mainItem: "node",
-                commands: [ "app.js" ]
+                "file": {
+                    "contents": "{\\n    \\"name\\": \\"my-express-app\\",\\n    \\"version\\": \\"1.0.0\\",\\n    \\"description\\": \\"A simple Express application\\",\\n    \\"main\\": \\"app.js\\",\\n    \\"scripts\\": {\\n        \\"start\\": \\"node app.js\\"\\n    },\\n    \\"dependencies\\": {\\n        \\"express\\": \\"^4.19.2\\"\\n    }\\n}"
+                }
+            }
         }
     }
-
-    user:Create an express application 
-
     </example>
 
-
-    
     <example>
-
-        user:Hello 
-        response:{
-            "text":"Hello, How can I help you today?"
-        }
-
+    user: Hello 
+    response: {
+        "text": "Hello, How can I help you today?"
+    }
     </example>
     
-    IMPORTANT : don't use file name like routes/index.js
-    
-    
+    IMPORTANT: 
+    - Always respond with valid JSON only
+    - Use proper JSON escaping for quotes and newlines
+    - Don't include any extra text outside the JSON
+    - Don't use file names like routes/index.js
+    - Use simple file names like app.js, package.json, etc.
     `
 });
 
 export const generateResult = async (prompt) => {
+    try {
+        if (!process.env.GOOGLE_AI_KEY) {
+            throw new Error("GOOGLE_AI_KEY environment variable is not set");
+        }
 
-    const result = await model.generateContent(prompt);
-
-    return result.response.text()
+        console.log("Using model: gemini-2.5-flash");
+        console.log("API Key present:", !!process.env.GOOGLE_AI_KEY);
+        
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+        console.log("AI Response:", responseText);
+        return responseText;
+    } catch (error) {
+        console.error("Error in generateResult:", error);
+        console.error("Error details:", {
+            message: error.message,
+            status: error.status,
+            statusText: error.statusText
+        });
+        throw error;
+    }
 }
