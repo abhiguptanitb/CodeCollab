@@ -3,6 +3,18 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('@codemirror') || id.includes('@uiw/react-codemirror')) {
+            return 'editor'
+          }
+        }
+      }
+    }
+  },
   server: {
     headers: {
       "Cross-Origin-Opener-Policy": "same-origin",

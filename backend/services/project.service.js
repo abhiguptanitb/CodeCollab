@@ -1,5 +1,22 @@
 import projectModel from '../models/project.model.js';
 import mongoose from 'mongoose';
+import { deleteMessagesByProject } from './message.service.js';
+
+const assertProjectMember = async ({ projectId, userId }) => {
+    const project = await projectModel.findOne({ _id: projectId, users: userId });
+    if (!project) {
+        throw new Error('User not belong to this project');
+    }
+    return project;
+};
+
+const assertProjectOwner = async ({ projectId, userId }) => {
+    const project = await projectModel.findOne({ _id: projectId, createdBy: userId });
+    if (!project) {
+        throw new Error('Only project owner can perform this action');
+    }
+    return project;
+};
 
 export const createProject = async ({ name, userId }) => {
     if (!name) {
@@ -9,15 +26,11 @@ export const createProject = async ({ name, userId }) => {
         throw new Error('UserId is required');
     }
     
-    console.log('Creating project with name:', name, 'for user:', userId);
-    
-    // Check if project already exists for this specific user
     const existingProject = await projectModel.findOne({ 
         name: name.trim(), 
         createdBy: userId 
     });
     if (existingProject) {
-        console.log('Project already exists for this user:', existingProject);
         throw new Error('You already have a project with this name');
     }
     
@@ -28,7 +41,6 @@ export const createProject = async ({ name, userId }) => {
             users: [userId],
             createdBy: userId
         });
-        console.log('Project created successfully:', project);
     } catch (error) {
         console.error('Error creating project:', error);
         if (error.code === 11000) {
@@ -68,44 +80,59 @@ export const addUsersToProject = async ({ projectId, users, userId }) => {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
         throw new Error('Invalid userId');
     }
-    const project = await projectModel.findOne({ _id: projectId, users: userId });
-    if (!project) {
-        throw new Error('User not belong to this project');
-    }
+    await assertProjectOwner({ projectId, userId });
     const updatedProject = await projectModel.findOneAndUpdate(
         { _id: projectId },
         { $addToSet: { users: { $each: users } } },
         { new: true }
-    );
+    ).populate('createdBy', 'email').populate('users', 'email');
     return updatedProject;
 };
 
-export const getProjectById = async ({ projectId }) => {
+export const getProjectById = async ({ projectId, userId }) => {
     if (!projectId) {
         throw new Error('projectId is required');
     }
     if (!mongoose.Types.ObjectId.isValid(projectId)) {
         throw new Error('Invalid projectId');
     }
-    const project = await projectModel.findOne({ _id: projectId }).populate('users');
+    if (!userId) {
+        throw new Error('userId is required');
+    }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+        throw new Error('Invalid userId');
+    }
+    const project = await projectModel.findOne({ _id: projectId, users: userId })
+        .populate('createdBy', 'email')
+        .populate('users', 'email');
+    if (!project) {
+        throw new Error('User not belong to this project');
+    }
     return project;
 };
 
-export const updateFileTree = async ({ projectId, fileTree }) => {
+export const updateFileTree = async ({ projectId, fileTree, userId }) => {
     if (!projectId) {
         throw new Error('projectId is required');
     }
     if (!mongoose.Types.ObjectId.isValid(projectId)) {
         throw new Error('Invalid projectId');
+    }
+    if (!userId) {
+        throw new Error('userId is required');
+    }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+        throw new Error('Invalid userId');
     }
     if (!fileTree) {
         throw new Error('fileTree is required');
     }
+    await assertProjectMember({ projectId, userId });
     const project = await projectModel.findOneAndUpdate(
-        { _id: projectId },
+        { _id: projectId, users: userId },
         { fileTree },
         { new: true }
-    );
+    ).populate('createdBy', 'email').populate('users', 'email');
     return project;
 };
 
@@ -119,10 +146,8 @@ export const deleteProject = async ({ projectId, userId }) => {
     if (!userId) {
         throw new Error('userId is required');
     }
-    const project = await projectModel.findOne({ _id: projectId, users: userId });
-    if (!project) {
-        throw new Error('User not belong to this project');
-    }
+    await assertProjectOwner({ projectId, userId });
+    await deleteMessagesByProject({ projectId });
     await projectModel.deleteOne({ _id: projectId });
 };
 

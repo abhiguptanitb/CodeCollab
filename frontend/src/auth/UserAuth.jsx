@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../context/user.context';
 import axios from '../config/axios';
@@ -18,7 +18,7 @@ const UserAuth = ({ children }) => {
                     const response = await axios.get('/users/profile');
                     setUser(response.data.user);
                     setLoading(false);
-                } catch (error) {
+                } catch {
                     navigate('/login'); // Redirect if user is not authenticated
                 }
             } else {

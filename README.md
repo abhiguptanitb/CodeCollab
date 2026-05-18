@@ -1,80 +1,88 @@
-# 🚀 CodeCollab
+# CodeCollab
 
-**CodeCollab** is a collaborative coding platform built with the **MERN stack** (MongoDB, Express, React, Node.js). It enables users to create projects, collaborate in real-time, chat, and run code securely in the browser using [WebContainer](https://webcontainers.io/). Key features include user authentication, project management, AI-powered assistance, and live code execution.
+CodeCollab is a full-stack collaborative coding workspace built with React, Node.js, Express, MongoDB, Socket.IO, WebContainer, and Google Gemini. It lets users create project workspaces, invite collaborators, chat in real time, ask an AI assistant to generate files, edit code in the browser, and run generated projects locally through WebContainer.
 
----
+## Why This Project Matters
 
-## ✨ Features
+This project is designed to demonstrate production-minded MERN engineering rather than only UI screens. It includes authenticated project access, owner-only membership controls, persistent chat history, real-time workspace synchronization, isolated integration tests, and a browser-based code execution flow.
 
-- 🔐 **User Authentication**: Register, login, and logout with JWT-based authentication.
-- 🗂️ **Project Management**: Create, view, and delete projects. Supports multiple collaborators per project.
-- 👥 **Collaborators**: Add/remove users as collaborators in a project.
-- 💬 **Real-Time Chat**: Chat with project collaborators using Socket.IO.
-- 🤖 **AI Assistant**: Mention `@ai` in chat to get code suggestions powered by Google Gemini AI.
-- 🧾 **File Tree & Editor**: View and edit project files with a syntax-highlighted code editor.
-- 🧪 **Live Code Execution**: Secure, browser-based code execution via WebContainer.
-- 🔐 **Cross-Origin Isolation**: Configured for secure use of `SharedArrayBuffer` and WebContainer.
-- 📱 **Responsive UI**: Built with React and Tailwind CSS for modern, responsive design.
+## Core Features
 
----
+- JWT authentication for register, login, protected routes, and logout token blacklisting.
+- Project workspaces with owner and collaborator roles.
+- Owner-only collaborator management and project deletion.
+- Real-time project chat using Socket.IO.
+- MongoDB-backed chat history scoped to project collaborators.
+- AI assistant support through `@ai` messages.
+- AI-generated file tree updates synchronized to every connected collaborator.
+- CodeMirror-powered browser editor with syntax highlighting and line numbers.
+- WebContainer-based local code execution and preview.
+- Project activity metadata with created/updated timestamps.
+- Backend integration tests using `node:test`, `supertest`, and `mongodb-memory-server`.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
-**Frontend**:
+Frontend:
 - React
 - Vite
 - Tailwind CSS
-- Socket.IO Client
+- React Router
 - Axios
-- Markdown-to-JSX
-- Highlight.js
+- Socket.IO Client
+- CodeMirror
+- WebContainer API
 
-**Backend**:
+Backend:
 - Node.js
 - Express
-- MongoDB (Mongoose)
+- MongoDB and Mongoose
 - Socket.IO
 - JWT
-- Redis (for token blacklisting)
+- Redis / ioredis
 - Google Generative AI
+- Node test runner
+- Supertest
+- mongodb-memory-server
 
-**Other**:
-- WebContainer (for secure code execution)
-- HTTPS (required for WebContainer and cross-origin isolation)
+## Architecture
 
----
+```text
+React + Vite frontend
+        |
+        | HTTP: auth, projects, messages
+        | WebSocket: chat, file-tree updates
+        v
+Express API + Socket.IO server
+        |
+        | Mongoose models
+        v
+MongoDB
 
-## ⚙️ Getting Started
-
-### ✅ Prerequisites
-
-- Node.js (v18+ recommended)
-- MongoDB instance (local or cloud)
-- Redis instance (local or cloud)
-- [mkcert](https://github.com/FiloSottile/mkcert) (for local HTTPS certificates)
-- Google Gemini AI API Key
-
----
-
-### 🔧 1. Clone the Repository
-
-```bash
-git clone https://github.com/yourusername/codecollab.git
-cd codecollab
+Redis is used for logout token blacklisting.
+Google Gemini powers AI project-file generation.
+WebContainer runs generated code inside the browser.
 ```
 
----
+## Security And Authorization
 
-### 🔙 2. Backend Setup
+- The backend validates JWTs for protected HTTP routes.
+- Socket.IO connections also validate JWTs before joining a project room.
+- Users can only open projects where they are collaborators.
+- Only project owners can add collaborators or delete projects.
+- Collaborators can chat and edit project files.
+- Chat sender identity is created server-side, not trusted from the client.
+- Project messages are scoped by project membership.
 
-#### a. Install Dependencies
+## Local Setup
+
+### Backend
 
 ```bash
 cd backend
 npm install
 ```
 
-#### b. Create `.env` File
+Create `backend/.env`:
 
 ```env
 PORT=3000
@@ -82,150 +90,85 @@ MONGODB_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
 REDIS_HOST=localhost
 REDIS_PORT=6379
-REDIS_PASSWORD=your_redis_password_if_any
+REDIS_PASSWORD=
 GOOGLE_AI_KEY=your_google_gemini_api_key
+CLIENT_URL=http://localhost:5173
 ```
 
-#### c. Generate HTTPS Certificates (for local dev)
+Run the backend:
 
 ```bash
-mkcert -key-file key.pem -cert-file cert.pem localhost
+npm run dev
 ```
 
-Place `key.pem` and `cert.pem` in the `backend` directory.
-
-#### d. Update `server.js` for HTTPS
-
-```js
-import https from 'https';
-import fs from 'fs';
-// ...other imports
-
-const sslOptions = {
-  key: fs.readFileSync('./key.pem'),
-  cert: fs.readFileSync('./cert.pem'),
-};
-
-const server = https.createServer(sslOptions, app);
-// ...rest of the code
-```
-
-#### e. Start the Backend Server
-
-```bash
-npm start
-```
-
----
-
-### 💻 3. Frontend Setup
-
-#### a. Install Dependencies
+### Frontend
 
 ```bash
 cd frontend
 npm install
 ```
 
-#### b. Create `.env` File
+Create `frontend/.env`:
 
 ```env
-VITE_API_URL=https://localhost:3000
+VITE_API_URL=http://localhost:3000
 ```
 
-#### c. Optional: Enable HTTPS for Vite (local dev)
-
-Edit `vite.config.js`:
-
-```js
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import fs from 'fs'
-
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    https: {
-      key: fs.readFileSync('../backend/key.pem'),
-      cert: fs.readFileSync('../backend/cert.pem'),
-    },
-    headers: {
-      "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Embedder-Policy": "require-corp"
-    }
-  }
-})
-```
-
-#### d. Start the Frontend
+Run the frontend:
 
 ```bash
 npm run dev
 ```
 
----
+## WebContainer Note
 
-## 🚀 Deployment
-
-- **Production HTTPS**: Use trusted SSL (e.g., Let’s Encrypt) for backend and frontend.
-- **Cross-Origin Isolation Headers**:
+WebContainer requires browser support for cross-origin isolation. The Vite dev server sets:
 
 ```http
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 ```
 
-- **Environment Variables**: Use secure, production-level values.
+For full WebContainer behavior, use a Chromium-based browser and ensure your deployment also sends the required isolation headers.
 
----
+## Testing
 
-## ⚠️ Deployment Environment Notice
+Backend tests run against an isolated in-memory MongoDB instance:
 
-> **Note:**  
-> Real-time code execution using **WebContainers** is fully supported in **local development**.  
-> On deployed platforms, this feature may be **restricted or non-functional** due to browser sandboxing and cross-origin isolation requirements.
->
-> ✅ To experience full functionality:
-> - Clone the repository and run the project locally using `npm start`
-> - Use a **Chromium-based browser** (like Chrome or Edge)
->
-> ❌ May not work as expected on:
-> - Hosted platforms without proper cross-origin headers
-> - Browsers like **Firefox** or **Safari**
->
-> 📚 For technical details, refer to [WebContainer documentation](https://webcontainers.io/)
+```bash
+cd backend
+npm test
+```
 
----
+Current coverage focuses on:
+- Owner-only collaborator management.
+- Owner-only project deletion.
+- Collaborator project access.
+- File-tree update permissions.
+- Project-scoped message history.
+- Outsider access denial.
 
-## 🧑‍💻 Usage
+Frontend checks:
 
-1. Register or login.
-2. Create a new project.
-3. Add collaborators.
-4. Chat in real-time and use `@ai` for help.
-5. Edit code and run it directly in the browser.
+```bash
+cd frontend
+npm run lint
+npm run build
+```
 
----
+## Resume Talking Points
 
-## 🐛 Troubleshooting
+- Designed project-level authorization across REST APIs and Socket.IO.
+- Built a persistent real-time collaboration model with MongoDB and Socket.IO.
+- Integrated AI-generated file changes into a collaborative workspace.
+- Added browser-based code execution using WebContainer.
+- Wrote integration tests against isolated infrastructure.
+- Improved product polish with role-aware UI, loading/error states, timestamps, and a real code editor.
 
-- **WebContainer Errors**: Ensure HTTPS and isolation headers are properly set.
-- **Socket.IO Issues**: Use `wss://` and run backend with HTTPS.
-- **AI Assistant Not Responding**: Verify your Google Gemini API key and network settings.
+## Known Limitations
 
----
+- WebContainer support depends on browser and deployment headers.
+- Redis is required for production logout blacklisting.
+- AI-generated files should be reviewed before running untrusted code.
+- The app currently supports project-level roles, not fine-grained file permissions.
 
-## 📄 License
-
-**MIT License**
-
----
-
-## 🙌 Credits
-
-- [WebContainer](https://webcontainers.io)
-- [Google Generative AI](https://ai.google.dev/)
-- [React](https://react.dev)
-- [Socket.IO](https://socket.io)
-- [Vite](https://vitejs.dev)
-- [Tailwind CSS](https://tailwindcss.com)

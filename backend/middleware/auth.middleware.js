@@ -10,7 +10,7 @@ export const authUser = async (req, res, next) => {
         }
 
         // Check if the token is blacklisted
-        const isBlackListed = await redisClient.get(token).catch((err) => {
+        const isBlackListed = await redisClient.get(token).catch(( err) => {
             console.error('Redis error:', err);
             throw new Error('Redis unavailable');
         });

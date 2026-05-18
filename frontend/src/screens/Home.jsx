@@ -1,49 +1,58 @@
-import React, { useContext, useState, useEffect } from 'react';
+import { useContext, useState, useEffect } from 'react';
 import { UserContext } from '../context/user.context';
 import axios from "../config/axios";
 import { useNavigate } from 'react-router-dom';
 import Logo from '../assets/logo.svg';
 
 const Home = () => {
-    const { user, setUser, logout } = useContext(UserContext);
+    const { user, logout } = useContext(UserContext);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [projectName, setProjectName] = useState('');
     const [project, setProject] = useState([]);
+    const [isFetchingProjects, setIsFetchingProjects] = useState(true);
+    const [projectError, setProjectError] = useState('');
 
     const navigate = useNavigate();
 
     const createProject = (e) => {
         e.preventDefault();
-        console.log({ projectName });
+        setProjectError('');
 
         axios.post('/projects/create', {
             name: projectName,
         })
-            .then((res) => {
-                console.log(res);
+            .then(() => {
                 setIsModalOpen(false);
-                setProjectName(''); // Clear the input field
-                fetchProjects(); // Fetch projects again after creating a new project
+                setProjectName('');
+                fetchProjects();
             })
             .catch((error) => {
-                console.log(error);
+                setProjectError(error.response?.data?.message || error.response?.data?.error || 'Unable to create project.');
             });
     };
 
     const fetchProjects = () => {
+        setIsFetchingProjects(true);
         axios.get('/projects/all').then((res) => {
             setProject(res.data.projects);
+            setProjectError('');
         }).catch(err => {
-            console.log(err);
+            setProjectError(err.response?.data?.error || 'Unable to load projects.');
+        }).finally(() => {
+            setIsFetchingProjects(false);
         });
     };
 
     const deleteProject = (projectId) => {
+        if (!window.confirm('Delete this project and its chat history?')) {
+            return;
+        }
+
         axios.delete(`/projects/delete/${projectId}`).then((res) => {
             console.log(res.data);
-            fetchProjects(); // Fetch projects again after deleting a project
+            fetchProjects();
         }).catch(err => {
-            console.log(err);
+            setProjectError(err.response?.data?.error || 'Unable to delete project.');
         });
     };
 
@@ -62,6 +71,19 @@ const Home = () => {
         } catch (error) {
             console.log(error);
         }
+    };
+
+    const formatDate = (date) => {
+        if (!date) {
+            return 'Not updated yet';
+        }
+
+        return new Intl.DateTimeFormat(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }).format(new Date(date));
     };
 
     return (
@@ -103,6 +125,12 @@ const Home = () => {
                     <p className="text-slate-400">Manage your coding projects and collaborate with your team.</p>
                 </div>
 
+                {projectError && (
+                    <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                        {projectError}
+                    </div>
+                )}
+
                 {/* Action Bar */}
                 <div className="flex justify-between items-center mb-8">
                     <div className="flex items-center space-x-4">
@@ -120,7 +148,9 @@ const Home = () => {
                 </div>
 
                 {/* Projects Grid */}
-                {project.length === 0 ? (
+                {isFetchingProjects ? (
+                    <div className="text-center py-16 text-slate-400">Loading projects...</div>
+                ) : project.length === 0 ? (
                     <div className="text-center py-16">
                         <div className="w-24 h-24 mx-auto mb-6 bg-slate-700 rounded-full flex items-center justify-center">
                             <i className="ri-folder-open-line text-3xl text-slate-400"></i>
@@ -136,29 +166,42 @@ const Home = () => {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {project.map((project) => (
-                            <div
-                                key={project._id}
-                                onClick={() => navigate(`/project/${project._id}`, { state: { project } })}
-                                className="group bg-gradient-to-br from-slate-800/60 to-blue-900/40 backdrop-blur-sm border border-cyan-500/20 rounded-xl p-6 cursor-pointer hover:from-slate-800/80 hover:to-blue-900/60 hover:border-cyan-400/40 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-500/20"
-                            >
+                        {project.map((project) => {
+                            const isOwner = project.createdBy?._id === user?._id || project.createdBy?.email === user?.email;
+
+                            return (
+                                <div
+                                    key={project._id}
+                                    onClick={() => navigate(`/project/${project._id}`, { state: { project } })}
+                                    className="group bg-gradient-to-br from-slate-800/60 to-blue-900/40 backdrop-blur-sm border border-cyan-500/20 rounded-xl p-6 cursor-pointer hover:from-slate-800/80 hover:to-blue-900/60 hover:border-cyan-400/40 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-500/20"
+                                >
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center">
                                         <i className="ri-folder-line text-white text-xl"></i>
                                     </div>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        deleteProject(project._id);
-                                    }}
-                                        className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                                >
-                                    <i className="ri-delete-bin-6-line"></i>
-                                </button>
+                                    {isOwner && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                deleteProject(project._id);
+                                            }}
+                                            className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                                            title="Delete project"
+                                        >
+                                            <i className="ri-delete-bin-6-line"></i>
+                                        </button>
+                                    )}
                             </div>
                                 <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors">
                                     {project.name}
                                 </h3>
+                                <div className="mb-3">
+                                    <span className={`text-xs px-2 py-1 rounded-full ${
+                                        isOwner ? 'bg-emerald-500/10 text-emerald-300' : 'bg-slate-700 text-slate-300'
+                                    }`}>
+                                        {isOwner ? 'Owner' : 'Collaborator'}
+                                    </span>
+                                </div>
                                 <div className="flex items-center space-x-2 text-slate-400 mb-2">
                                     <i className="ri-user-line"></i>
                                     <span className="text-sm">{project.users.length} collaborator{project.users.length !== 1 ? 's' : ''}</span>
@@ -174,11 +217,12 @@ const Home = () => {
                                 <div className="mt-4 pt-4 border-t border-slate-700">
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs text-slate-500">Last updated</span>
-                                        <span className="text-xs text-slate-500">Just now</span>
+                                        <span className="text-xs text-slate-500">{formatDate(project.updatedAt)}</span>
                                     </div>
                                 </div>
                             </div>
-                        ))}
+                            )
+                        })}
                         </div>
                 )}
             </main>
