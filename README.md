@@ -12,21 +12,30 @@ CodeCollab is a full-stack collaborative coding workspace built with React, Node
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Current Features](#current-features)
-- [AI and WebContainer](#ai-and-webcontainer)
-- [Architecture](#architecture)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Environment Variables](#environment-variables)
-- [Installation](#installation)
-- [Running Locally](#running-locally)
-- [API Map](#api-map)
-- [Realtime Events](#realtime-events)
-- [Demo Flow](#demo-flow)
-- [Testing](#testing)
-- [Placement Talking Points](#placement-talking-points)
-- [Notes](#notes)
+- [CodeCollab](#codecollab)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Current Features](#current-features)
+  - [AI and WebContainer](#ai-and-webcontainer)
+  - [Architecture](#architecture)
+  - [Tech Stack](#tech-stack)
+    - [Frontend](#frontend)
+    - [Backend](#backend)
+  - [Project Structure](#project-structure)
+  - [Environment Variables](#environment-variables)
+  - [Installation](#installation)
+  - [Running Locally](#running-locally)
+  - [API Map](#api-map)
+    - [Health](#health)
+    - [Users](#users)
+    - [Projects](#projects)
+    - [Messages](#messages)
+    - [AI](#ai)
+  - [Realtime Events](#realtime-events)
+  - [Demo Flow](#demo-flow)
+  - [Testing](#testing)
+  - [Notes](#notes)
+  - [Author](#author)
 
 ## Overview
 
@@ -358,19 +367,7 @@ Frontend checks:
 cd frontend
 npm run lint
 npm run build
-```
-
-## Placement Talking Points
-
-- Designed project-level authorization using `createdBy` and `users`.
-- Returned backend-computed `role` values to keep owner/collaborator UI correct.
-- Built owner-only collaborator management with add and remove flows.
-- Used Socket.IO rooms for project chat, file sync, and project-list updates.
-- Stored chat history in MongoDB and scoped reads by project membership.
-- Integrated Gemini to generate structured file trees for the workspace.
-- Used WebContainer to install dependencies and run generated projects in the browser.
-- Added backend integration tests using isolated MongoDB infrastructure.
-- Improved practical UX with saved status, preview panel, role-aware controls, and faster repeated runs.
+```     
 
 ## Notes
 
@@ -379,3 +376,9 @@ npm run build
 - AI-generated code should be reviewed before running it.
 - The app supports project-level roles, not fine-grained file permissions.
 - Use strong secrets for `JWT_SECRET` and provider keys in real deployments.
+
+## Author
+
+Abhi Gupta
+
+- GitHub: [@abhiguptanitb](https://github.com/abhiguptanitb)
