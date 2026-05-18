@@ -1,86 +1,188 @@
 # CodeCollab
 
-CodeCollab is a full-stack collaborative coding workspace built with React, Node.js, Express, MongoDB, Socket.IO, WebContainer, and Google Gemini. It lets users create project workspaces, invite collaborators, chat in real time, ask an AI assistant to generate files, edit code in the browser, and run generated projects locally through WebContainer.
+![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=111)
+![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=for-the-badge&logo=vite&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-Express-339933?style=for-the-badge&logo=node.js&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
+![Socket.io](https://img.shields.io/badge/Socket.io-Realtime-010101?style=for-the-badge&logo=socket.io&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-Blacklist-DC382D?style=for-the-badge&logo=redis&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini-AI-8E75B2?style=for-the-badge&logo=google&logoColor=white)
 
-## Why This Project Matters
+CodeCollab is a full-stack collaborative coding workspace built with React, Node.js, Express, MongoDB, Socket.IO, WebContainer, and Google Gemini. Users can create coding projects, invite collaborators, chat in real time, ask an AI assistant to generate project files, edit code in the browser, and run generated apps through WebContainer preview.
 
-This project is designed to demonstrate production-minded MERN engineering rather than only UI screens. It includes authenticated project access, owner-only membership controls, persistent chat history, real-time workspace synchronization, isolated integration tests, and a browser-based code execution flow.
+## Table of Contents
 
-## Core Features
+- [Overview](#overview)
+- [Current Features](#current-features)
+- [AI and WebContainer](#ai-and-webcontainer)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Environment Variables](#environment-variables)
+- [Installation](#installation)
+- [Running Locally](#running-locally)
+- [API Map](#api-map)
+- [Realtime Events](#realtime-events)
+- [Demo Flow](#demo-flow)
+- [Testing](#testing)
+- [Placement Talking Points](#placement-talking-points)
+- [Notes](#notes)
 
-- JWT authentication for register, login, protected routes, and logout token blacklisting.
-- Project workspaces with owner and collaborator roles.
-- Owner-only collaborator management and project deletion.
-- Real-time project chat using Socket.IO.
-- MongoDB-backed chat history scoped to project collaborators.
+## Overview
+
+CodeCollab is designed as a production-minded MERN project rather than a simple CRUD app. It demonstrates authenticated project access, owner-only membership controls, real-time collaboration, persistent chat history, AI-assisted code generation, browser-based code execution, and backend integration tests.
+
+Each project has:
+
+- `createdBy`: the owner who created the project.
+- `users`: all members who can access the project.
+- `role`: returned by the backend as `owner` or `collaborator` for the logged-in user.
+- `fileTree`: generated or edited project files.
+
+Only the owner can add collaborators, remove collaborators, or delete the project. Collaborators can open the workspace, chat, edit files, and run the project preview.
+
+## Current Features
+
+- Email/password registration and login.
+- JWT-protected REST APIs.
+- Logout token blacklisting with Redis.
+- Project creation and project listing.
+- Owner and collaborator role handling.
+- Owner-only collaborator add/remove flow.
+- Owner-only project deletion.
+- Realtime project list updates when collaborators are added or removed.
+- Realtime project chat using Socket.IO rooms.
+- MongoDB-backed message history scoped to project members.
 - AI assistant support through `@ai` messages.
-- AI-generated file tree updates synchronized to every connected collaborator.
-- CodeMirror-powered browser editor with syntax highlighting and line numbers.
-- WebContainer-based local code execution and preview.
-- Project activity metadata with created/updated timestamps.
-- Backend integration tests using `node:test`, `supertest`, and `mongodb-memory-server`.
+- AI-generated file tree synchronization across collaborators.
+- Browser code editor with CodeMirror.
+- WebContainer-powered dependency install, run command, and preview iframe.
+- Dependency install caching so repeated runs are faster when `package.json` is unchanged.
+- Clean backend startup logs for MongoDB, Redis, and server port.
+- Backend integration tests with `node:test`, `supertest`, and `mongodb-memory-server`.
 
-## Tech Stack
+## AI and WebContainer
 
-Frontend:
-- React
-- Vite
-- Tailwind CSS
-- React Router
-- Axios
-- Socket.IO Client
-- CodeMirror
-- WebContainer API
+CodeCollab uses Google Gemini through `@google/generative-ai`. When a user sends a message containing `@ai`, the backend asks Gemini for a JSON response.
 
-Backend:
-- Node.js
-- Express
-- MongoDB and Mongoose
-- Socket.IO
-- JWT
-- Redis / ioredis
-- Google Generative AI
-- Node test runner
-- Supertest
-- mongodb-memory-server
+Expected AI response shape:
+
+```json
+{
+  "text": "Explanation for the user",
+  "fileTree": {
+    "app.js": {
+      "file": {
+        "contents": "console.log('hello')"
+      }
+    }
+  }
+}
+```
+
+If `fileTree` is present, the project files are saved and synced to connected collaborators.
+
+WebContainer runs generated projects directly in the browser:
+
+- Mounts the project `fileTree`.
+- Runs `npm install` when `package.json` changes.
+- Runs `npm start`.
+- Displays the app in the preview panel when a server is ready.
 
 ## Architecture
 
 ```text
-React + Vite frontend
-        |
-        | HTTP: auth, projects, messages
-        | WebSocket: chat, file-tree updates
-        v
-Express API + Socket.IO server
-        |
-        | Mongoose models
-        v
-MongoDB
+                           +-------------------------+
+                           |        Frontend         |
+                           | React + Vite + Tailwind |
+                           +-----------+-------------+
+                                       |
+                  +--------------------+--------------------+
+                  |                                         |
+                  v                                         v
+          HTTP REST APIs                          Socket.IO realtime
+    auth, projects, messages, AI          chat, file sync, project updates
+                  |                                         |
+                  +--------------------+--------------------+
+                                       |
+                           +-----------v-------------+
+                           |      Express Server     |
+                           | REST API + Socket.IO    |
+                           +-----------+-------------+
+                                       |
+                  +--------------------+--------------------+
+                  |                                         |
+                  v                                         v
+           MongoDB + Mongoose                         Redis / ioredis
+    users, projects, messages              logout token blacklist
 
-Redis is used for logout token blacklisting.
-Google Gemini powers AI project-file generation.
-WebContainer runs generated code inside the browser.
+                  +-----------------------------------------+
+                  | Google Gemini: AI file generation       |
+                  | WebContainer: browser runtime preview   |
+                  +-----------------------------------------+
 ```
 
-## Security And Authorization
+## Tech Stack
 
-- The backend validates JWTs for protected HTTP routes.
-- Socket.IO connections also validate JWTs before joining a project room.
-- Users can only open projects where they are collaborators.
-- Only project owners can add collaborators or delete projects.
-- Collaborators can chat and edit project files.
-- Chat sender identity is created server-side, not trusted from the client.
-- Project messages are scoped by project membership.
+### Frontend
 
-## Local Setup
+- React 18
+- Vite 6
+- Tailwind CSS 3
+- React Router 7
+- Axios
+- Socket.IO Client
+- CodeMirror
+- WebContainer API
+- Markdown rendering with `markdown-to-jsx`
+- Remix Icon
 
 ### Backend
 
-```bash
-cd backend
-npm install
+- Node.js
+- Express 4
+- MongoDB with Mongoose
+- Socket.IO
+- JWT
+- Redis with ioredis
+- Google Generative AI
+- Express Validator
+- Node test runner
+- Supertest
+- mongodb-memory-server
+
+## Project Structure
+
+```text
+CodeCollab/
+  README.md
+
+  backend/
+    app.js
+    server.js
+    controllers/
+    db/
+    middleware/
+    models/
+    routes/
+    services/
+    test/
+    package.json
+
+  frontend/
+    src/
+      auth/
+      config/
+      context/
+      screens/
+      routes/
+      assets/
+    package.json
+    vite.config.js
+    tailwind.config.js
 ```
+
+## Environment Variables
 
 Create `backend/.env`:
 
@@ -95,41 +197,139 @@ GOOGLE_AI_KEY=your_google_gemini_api_key
 CLIENT_URL=http://localhost:5173
 ```
 
-Run the backend:
-
-```bash
-npm run dev
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-```
-
 Create `frontend/.env`:
 
 ```env
 VITE_API_URL=http://localhost:3000
 ```
 
-Run the frontend:
+Keep `.env` files private and never commit real secrets.
+
+## Installation
+
+Install backend dependencies:
 
 ```bash
+cd backend
+npm install
+```
+
+Install frontend dependencies:
+
+```bash
+cd frontend
+npm install
+```
+
+## Running Locally
+
+Start MongoDB and Redis first.
+
+Start the backend:
+
+```bash
+cd backend
 npm run dev
 ```
 
-## WebContainer Note
+Expected terminal output:
 
-WebContainer requires browser support for cross-origin isolation. The Vite dev server sets:
-
-```http
-Cross-Origin-Opener-Policy: same-origin
-Cross-Origin-Embedder-Policy: require-corp
+```text
+MongoDB connected
+Redis connected
+Server is running on port 3000
 ```
 
-For full WebContainer behavior, use a Chromium-based browser and ensure your deployment also sends the required isolation headers.
+Start the frontend:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:5173
+```
+
+## API Map
+
+### Health
+
+```http
+GET /
+```
+
+Returns API status and route summary.
+
+### Users
+
+Base path: `/users`
+
+- `POST /register`
+- `POST /login`
+- `GET /profile`
+- `GET /logout`
+- `GET /all`
+
+### Projects
+
+Base path: `/projects`
+
+- `POST /create`
+- `GET /all`
+- `PUT /add-user`
+- `PUT /remove-user`
+- `GET /get-project/:projectId`
+- `PUT /update-file-tree`
+- `DELETE /delete/:projectId`
+
+### Messages
+
+Base path: `/messages`
+
+- `GET /project/:projectId`
+
+### AI
+
+Base path: `/ai`
+
+- `GET /get-result?prompt=...`
+
+## Realtime Events
+
+Socket.IO authenticates using the JWT token from the client.
+
+Project workspace sockets join a project room using `projectId`.
+
+Client to server:
+
+- `project-message`
+- `file-tree-save`
+
+Server to client:
+
+- `project-message`
+- `file-tree-updated`
+- `project-error`
+- `projects-changed`
+
+`projects-changed` is sent to user-level rooms so a collaborator's Home page updates automatically when they are added to or removed from a project.
+
+## Demo Flow
+
+1. Register or log in as User A.
+2. Create a new project.
+3. Log in as User B in another browser.
+4. As User A, add User B as a collaborator.
+5. User B sees the project appear without refreshing the Home page.
+6. Open the project as both users.
+7. Send chat messages in real time.
+8. Ask `@ai create an express app`.
+9. Open generated files in the editor.
+10. Run the project and view it in the preview panel.
+11. As owner, remove a collaborator and confirm access is revoked.
 
 ## Testing
 
@@ -140,13 +340,17 @@ cd backend
 npm test
 ```
 
-Current coverage focuses on:
-- Owner-only collaborator management.
+Current coverage includes:
+
+- Project-scoped chat history.
+- Owner-only collaborator add flow.
+- Owner-only collaborator remove flow.
 - Owner-only project deletion.
+- Correct owner/collaborator roles in project lists.
+- Removed collaborator losing project access.
 - Collaborator project access.
-- File-tree update permissions.
-- Project-scoped message history.
 - Outsider access denial.
+- File-tree update authorization.
 
 Frontend checks:
 
@@ -156,19 +360,22 @@ npm run lint
 npm run build
 ```
 
-## Resume Talking Points
+## Placement Talking Points
 
-- Designed project-level authorization across REST APIs and Socket.IO.
-- Built a persistent real-time collaboration model with MongoDB and Socket.IO.
-- Integrated AI-generated file changes into a collaborative workspace.
-- Added browser-based code execution using WebContainer.
-- Wrote integration tests against isolated infrastructure.
-- Improved product polish with role-aware UI, loading/error states, timestamps, and a real code editor.
+- Designed project-level authorization using `createdBy` and `users`.
+- Returned backend-computed `role` values to keep owner/collaborator UI correct.
+- Built owner-only collaborator management with add and remove flows.
+- Used Socket.IO rooms for project chat, file sync, and project-list updates.
+- Stored chat history in MongoDB and scoped reads by project membership.
+- Integrated Gemini to generate structured file trees for the workspace.
+- Used WebContainer to install dependencies and run generated projects in the browser.
+- Added backend integration tests using isolated MongoDB infrastructure.
+- Improved practical UX with saved status, preview panel, role-aware controls, and faster repeated runs.
 
-## Known Limitations
+## Notes
 
-- WebContainer support depends on browser and deployment headers.
-- Redis is required for production logout blacklisting.
-- AI-generated files should be reviewed before running untrusted code.
-- The app currently supports project-level roles, not fine-grained file permissions.
-
+- WebContainer requires browser support for cross-origin isolation. A Chromium-based browser is recommended.
+- Redis is required for production logout token blacklisting.
+- AI-generated code should be reviewed before running it.
+- The app supports project-level roles, not fine-grained file permissions.
+- Use strong secrets for `JWT_SECRET` and provider keys in real deployments.

@@ -3,6 +3,7 @@ import { UserContext } from '../context/user.context';
 import axios from "../config/axios";
 import { useNavigate } from 'react-router-dom';
 import Logo from '../assets/logo.svg';
+import { disconnectSocket, initializeUserSocket } from '../config/socket';
 
 const Home = () => {
     const { user, logout } = useContext(UserContext);
@@ -48,8 +49,7 @@ const Home = () => {
             return;
         }
 
-        axios.delete(`/projects/delete/${projectId}`).then((res) => {
-            console.log(res.data);
+        axios.delete(`/projects/delete/${projectId}`).then(() => {
             fetchProjects();
         }).catch(err => {
             setProjectError(err.response?.data?.error || 'Unable to delete project.');
@@ -59,7 +59,16 @@ const Home = () => {
     useEffect(() => {
         if (user) {
             fetchProjects();
+            const socket = initializeUserSocket();
+            socket.on('projects-changed', fetchProjects);
+
+            return () => {
+                socket.off('projects-changed', fetchProjects);
+                disconnectSocket();
+            };
         }
+
+        return undefined;
     }, [user]);
 
     const handleLogout = async () => {
@@ -68,8 +77,10 @@ const Home = () => {
             localStorage.removeItem('token');
             logout(); // This will clear chat data and set user to null
             navigate('/login');
-        } catch (error) {
-            console.log(error);
+        } catch {
+            localStorage.removeItem('token');
+            logout();
+            navigate('/login');
         }
     };
 
@@ -84,6 +95,19 @@ const Home = () => {
             hour: '2-digit',
             minute: '2-digit'
         }).format(new Date(date));
+    };
+
+    const getUserId = (projectUser) => (projectUser?._id || projectUser)?.toString();
+
+    const getCollaboratorCount = (projectItem) => {
+        const ownerId = getUserId(projectItem.createdBy);
+        const projectUsers = projectItem.users || [];
+
+        if (ownerId && projectUsers.length > 0) {
+            return projectUsers.filter((projectUser) => getUserId(projectUser) !== ownerId).length;
+        }
+
+        return projectItem.collaboratorCount ?? 0;
     };
 
     return (
@@ -167,7 +191,8 @@ const Home = () => {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {project.map((project) => {
-                            const isOwner = project.createdBy?._id === user?._id || project.createdBy?.email === user?.email;
+                            const isOwner = project.role === 'owner';
+                            const collaboratorCount = getCollaboratorCount(project);
 
                             return (
                                 <div
@@ -204,7 +229,7 @@ const Home = () => {
                                 </div>
                                 <div className="flex items-center space-x-2 text-slate-400 mb-2">
                                     <i className="ri-user-line"></i>
-                                    <span className="text-sm">{project.users.length} collaborator{project.users.length !== 1 ? 's' : ''}</span>
+                                    <span className="text-sm">{collaboratorCount} collaborator{collaboratorCount !== 1 ? 's' : ''}</span>
                                 </div>
                                 {project.createdBy && (
                                     <div className="flex items-center space-x-2 text-slate-500">

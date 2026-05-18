@@ -11,7 +11,7 @@ export const authUser = async (req, res, next) => {
 
         // Check if the token is blacklisted
         const isBlackListed = await redisClient.get(token).catch(( err) => {
-            console.error('Redis error:', err);
+            console.error('Redis unavailable:', err.message);
             throw new Error('Redis unavailable');
         });
 
@@ -31,7 +31,7 @@ export const authUser = async (req, res, next) => {
         if (error.name === 'TokenExpiredError') {
             return res.status(401).send({ error: 'Token Expired' });
         }
-        console.error('Error in auth middleware:', error);
+        console.error('Authentication failed:', error.message);
         return res.status(500).send({ error: 'Internal Server Error' });
     }
 };

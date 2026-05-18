@@ -61,9 +61,6 @@ export const loginController = async (req, res) => {
 
 
     } catch (err) {
-
-        console.log(err);
-
         res.status(400).send(err.message);
     }
 }
@@ -89,7 +86,6 @@ export const logoutController = async (req, res) => {
 
 
     } catch (err) {
-        console.log(err);
         res.status(400).send(err.message);
     }
 }
@@ -108,9 +104,6 @@ export const getAllUsersController = async (req, res) => {
         })
 
     } catch (err) {
-
-        console.log(err)
-
         res.status(400).json({ error: err.message })
 
     }

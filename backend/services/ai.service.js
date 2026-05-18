@@ -55,20 +55,10 @@ export const generateResult = async (prompt) => {
             throw new Error("GOOGLE_AI_KEY environment variable is not set");
         }
 
-        console.log("Using model: gemini-2.5-flash");
-        console.log("API Key present:", !!process.env.GOOGLE_AI_KEY);
-        
         const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
-        console.log("AI Response:", responseText);
-        return responseText;
+        return result.response.text();
     } catch (error) {
-        console.error("Error in generateResult:", error);
-        console.error("Error details:", {
-            message: error.message,
-            status: error.status,
-            statusText: error.statusText
-        });
+        console.error("AI generation failed:", error.message);
         throw error;
     }
 }

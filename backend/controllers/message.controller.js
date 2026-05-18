@@ -3,7 +3,7 @@ import * as messageService from '../services/message.service.js';
 
 const logError = (err) => {
     if (process.env.NODE_ENV !== 'test') {
-        console.log(err);
+        console.error(err.message);
     }
 };
 

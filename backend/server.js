@@ -23,6 +23,7 @@ const io = new Server(server, {
         credentials: corsOrigin !== '*'
     }
 });
+app.set('io', io);
 
 io.use(async (socket, next) => {
     try {
@@ -45,6 +46,9 @@ io.use(async (socket, next) => {
         socket.user = user;
 
         const projectId = socket.handshake.query.projectId;
+        if (!projectId) {
+            return next();
+        }
 
         if (!mongoose.Types.ObjectId.isValid(projectId)) {
             return next(new Error("Invalid projectId"));
@@ -64,9 +68,18 @@ io.use(async (socket, next) => {
 
 
 io.on('connection', socket => {
-    socket.roomId = socket.project._id.toString()
+    socket.userRoomId = `user:${socket.user._id.toString()}`;
+    socket.join(socket.userRoomId);
 
-    console.log('a user connected');
+    if (!socket.project) {
+        socket.on('disconnect', () => {
+            socket.leave(socket.userRoomId);
+        });
+
+        return;
+    }
+
+    socket.roomId = socket.project._id.toString()
 
     socket.join(socket.roomId);
 
@@ -95,8 +108,6 @@ io.on('connection', socket => {
                 const result = await generateResult(prompt);
 
                 try {
-                    console.log("Raw AI result:", result);
-                
                     let cleanResult = result.trim();
                 
                     const jsonMatch = cleanResult.match(/\{[\s\S]*\}/);
@@ -105,10 +116,8 @@ io.on('connection', socket => {
                     }
                 
                     const aiResponse = JSON.parse(cleanResult);
-                    console.log("Parsed AI response:", aiResponse);
                 
                     if (aiResponse.fileTree) {
-                        console.log("FileTree found, updating project...");
                         const project = await projectService.updateFileTree({
                             projectId: socket.roomId,
                             fileTree: aiResponse.fileTree,
@@ -128,8 +137,6 @@ io.on('connection', socket => {
                     io.to(socket.roomId).emit('project-message', savedAiMessage);
 
                 } catch (parseError) {
-                    console.log('AI response is not valid JSON, sending as text:', parseError.message);
-                    console.log('Raw result that failed to parse:', result);
                     const savedAiMessage = await messageService.createAiMessage({
                         projectId: socket.roomId,
                         message: result
@@ -140,7 +147,7 @@ io.on('connection', socket => {
                 return
             }
         } catch (error) {
-            console.error('Error handling project message:', error);
+            console.error('Project message failed:', error.message);
             socket.emit('project-error', { message: error.message });
         }
     })
@@ -161,13 +168,12 @@ io.on('connection', socket => {
                 fileTree: project.fileTree
             });
         } catch (error) {
-            console.error('Error saving file tree:', error);
+            console.error('File tree save failed:', error.message);
             socket.emit('project-error', { message: error.message });
         }
     })
 
     socket.on('disconnect', () => {
-        console.log('user disconnected');
         socket.leave(socket.roomId)
     });
 });

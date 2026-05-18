@@ -38,6 +38,7 @@ const Project = () => {
     const [ saveStatus, setSaveStatus ] = useState('Saved')
     const [ runStatus, setRunStatus ] = useState('')
     const [ actionStatus, setActionStatus ] = useState('')
+    const [ removingUserId, setRemovingUserId ] = useState(null)
     const [ isSendingMessage, setIsSendingMessage ] = useState(false)
     const [ webContainer, setWebContainer ] = useState(null)
     const [ iframeUrl, setIframeUrl ] = useState(null)
@@ -45,6 +46,7 @@ const Project = () => {
 
     const messageBox = useRef(null)
     const webContainerRef = useRef(null)
+    const installedPackageJsonRef = useRef(null)
 
     const openFile = useCallback((file) => {
         setCurrentFile(file)
@@ -58,7 +60,7 @@ const Project = () => {
         return users.filter((candidate) => !collaboratorIds.has(candidate._id))
     }, [ project?.users, users ])
 
-    const isOwner = project?.createdBy?._id === user?._id || project?.createdBy?.email === user?.email
+    const isOwner = project?.role === 'owner'
 
     useEffect(() => {
         if (messageBox.current) {
@@ -99,9 +101,7 @@ const Project = () => {
 
             setFileTree(data.fileTree)
             if (webContainerRef.current) {
-                webContainerRef.current.mount(data.fileTree).catch((err) => {
-                    console.error('Error mounting updated file tree:', err)
-                })
+                webContainerRef.current.mount(data.fileTree).catch(() => {})
             }
             setSaveStatus('Updated')
         }
@@ -145,7 +145,6 @@ const Project = () => {
                 setIsLoading(false)
             })
             .catch((err) => {
-                console.error('Error loading project workspace:', err)
                 if (isMounted) {
                     setError(err.response?.data?.error || 'Failed to load project. Please try again.')
                     setIsLoading(false)
@@ -162,7 +161,9 @@ const Project = () => {
                     setWebContainer(container)
                 })
                 .catch((err) => {
-                    console.error('Error initializing WebContainer:', err)
+                    if (isMounted) {
+                        setRunStatus(err.message || 'Unable to initialize WebContainer.')
+                    }
                 })
         }
 
@@ -209,8 +210,40 @@ const Project = () => {
                 setActionStatus('Collaborators updated.')
             })
             .catch((err) => {
-                console.error('Error adding collaborators:', err)
                 setActionStatus(err.response?.data?.error || 'Unable to add collaborators.')
+            })
+    }
+
+    const removeCollaborator = (collaboratorId) => {
+        if (!project?._id || !collaboratorId || removingUserId) {
+            return
+        }
+
+        if (!isOwner) {
+            setActionStatus('Only the project owner can remove collaborators.')
+            return
+        }
+
+        if (collaboratorId === project.createdBy?._id) {
+            setActionStatus('Project owner cannot be removed.')
+            return
+        }
+
+        setRemovingUserId(collaboratorId)
+        setActionStatus('Removing collaborator...')
+        axios.put('/projects/remove-user', {
+            projectId: project._id,
+            collaboratorId
+        })
+            .then((res) => {
+                setProject(res.data.project)
+                setActionStatus('Collaborator removed.')
+            })
+            .catch((err) => {
+                setActionStatus(err.response?.data?.error || 'Unable to remove collaborator.')
+            })
+            .finally(() => {
+                setRemovingUserId(null)
             })
     }
 
@@ -263,19 +296,32 @@ const Project = () => {
         }
 
         try {
-            setRunStatus('Installing dependencies...')
             await container.mount(fileTree)
 
-            const installProcess = await container.spawn('npm', [ 'install' ])
-            installProcess.output.pipeTo(new WritableStream({
-                write(chunk) {
-                    if (chunk.includes('added') || chunk.includes('audited')) {
-                        setRunStatus('Dependencies installed.')
-                    }
-                }
-            }))
+            const packageJsonContents = getFileContents(fileTree, 'package.json').trim()
+            const shouldInstallDependencies = packageJsonContents && installedPackageJsonRef.current !== packageJsonContents
 
-            await installProcess.exit
+            if (shouldInstallDependencies) {
+                setRunStatus('Installing dependencies...')
+                const installProcess = await container.spawn('npm', [ 'install' ])
+                installProcess.output.pipeTo(new WritableStream({
+                    write(chunk) {
+                        if (chunk.includes('added') || chunk.includes('audited') || chunk.includes('up to date')) {
+                            setRunStatus('Dependencies installed.')
+                        }
+                    }
+                }))
+
+                const installExitCode = await installProcess.exit
+                if (installExitCode !== 0) {
+                    setRunStatus(`Install failed with exit code ${installExitCode}`)
+                    return
+                }
+
+                installedPackageJsonRef.current = packageJsonContents
+            } else if (packageJsonContents) {
+                setRunStatus('Dependencies unchanged.')
+            }
 
             if (runProcess) {
                 runProcess.kill()
@@ -298,7 +344,6 @@ const Project = () => {
                 setRunStatus(`Running on port ${port}`)
             })
         } catch (err) {
-            console.error('Error while running project:', err)
             setRunStatus(err.message || 'Unable to run project.')
         }
     }
@@ -562,20 +607,28 @@ const Project = () => {
                         </div>
 
                         {iframeUrl && webContainer && (
-                            <div className="w-96 bg-slate-800 border-l border-slate-700 flex flex-col">
-                                <div className="p-4 border-b border-slate-700">
-                                    <h3 className="text-sm font-medium text-slate-300">Preview</h3>
+                            <div className="w-[28rem] bg-slate-900 border-l border-slate-700 flex flex-col">
+                                <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+                                    <div className="flex items-center space-x-2">
+                                        <span className="h-2.5 w-2.5 rounded-full bg-red-400"></span>
+                                        <span className="h-2.5 w-2.5 rounded-full bg-amber-400"></span>
+                                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400"></span>
+                                    </div>
+                                    <h3 className="text-sm font-medium text-slate-200">Preview</h3>
                                 </div>
-                                <div className="p-2 border-b border-slate-700">
-                                    <input
-                                        type="text"
-                                        value={iframeUrl}
-                                        onChange={(e) => setIframeUrl(e.target.value)}
-                                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
-                                    />
+                                <div className="p-3 border-b border-slate-700 bg-slate-800/80">
+                                    <div className="flex items-center space-x-2 rounded-md border border-slate-600 bg-slate-950 px-3 py-2">
+                                        <i className="ri-lock-line text-slate-400 text-sm"></i>
+                                        <input
+                                            type="text"
+                                            value={iframeUrl}
+                                            onChange={(e) => setIframeUrl(e.target.value)}
+                                            className="min-w-0 flex-1 bg-transparent text-slate-100 text-sm outline-none"
+                                        />
+                                    </div>
                                 </div>
-                                <div className="flex-1">
-                                    <iframe src={iframeUrl} className="w-full h-full border-0" title="Preview" />
+                                <div className="flex-1 bg-white">
+                                    <iframe src={iframeUrl} className="w-full h-full border-0 bg-white" title="Preview" />
                                 </div>
                             </div>
                         )}
@@ -599,25 +652,45 @@ const Project = () => {
                     </button>
                 </div>
                 <div className="p-4 space-y-3">
-                    {project.users?.map((projectUser) => (
-                        <div key={projectUser._id} className="flex items-center space-x-3 p-3 bg-slate-700 rounded-lg">
-                            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                                <span className="text-white text-sm font-medium">
-                                    {projectUser.email.charAt(0).toUpperCase()}
-                                </span>
-                            </div>
-                            <div>
-                                <p className="text-white font-medium">{projectUser.email}</p>
-                                <p className="text-slate-400 text-sm">
-                                    {projectUser._id === project.createdBy?._id ? 'Owner' : 'Collaborator'}
-                                </p>
-                            </div>
+                    {actionStatus && (
+                        <div className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-300">
+                            {actionStatus}
                         </div>
-                    ))}
+                    )}
+                    {project.users?.map((projectUser) => {
+                        const isProjectOwner = projectUser._id === project.createdBy?._id
+                        const canRemoveCollaborator = isOwner && !isProjectOwner
+
+                        return (
+                            <div key={projectUser._id} className="flex items-center space-x-3 p-3 bg-slate-700 rounded-lg">
+                                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                                    <span className="text-white text-sm font-medium">
+                                        {projectUser.email.charAt(0).toUpperCase()}
+                                    </span>
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-white font-medium truncate">{projectUser.email}</p>
+                                    <p className="text-slate-400 text-sm">
+                                        {isProjectOwner ? 'Owner' : 'Collaborator'}
+                                    </p>
+                                </div>
+                                {canRemoveCollaborator && (
+                                    <button
+                                        onClick={() => removeCollaborator(projectUser._id)}
+                                        disabled={removingUserId === projectUser._id}
+                                        className="p-2 text-slate-400 hover:text-red-300 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+                                        title="Remove collaborator"
+                                    >
+                                        <i className={removingUserId === projectUser._id ? 'ri-loader-4-line animate-spin' : 'ri-user-unfollow-line'}></i>
+                                    </button>
+                                )}
+                            </div>
+                        )
+                    })}
                 </div>
             </div>
 
-            {isModalOpen && (
+            {isModalOpen && isOwner && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md">
                         <div className="p-6">

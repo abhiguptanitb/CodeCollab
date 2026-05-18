@@ -4,8 +4,19 @@ import { validationResult } from 'express-validator';
 
 const logError = (err) => {
     if (process.env.NODE_ENV !== 'test') {
-        console.log(err);
+        console.error(err.message);
     }
+};
+
+const emitProjectListUpdate = (req, userIds = []) => {
+    const io = req.app.get('io');
+    if (!io) {
+        return;
+    }
+
+    userIds.forEach((userId) => {
+        io.to(`user:${userId.toString()}`).emit('projects-changed');
+    });
 };
 
 export const createProject = async (req, res) => {
@@ -45,6 +56,28 @@ export const addUserToProject = async (req, res) => {
         const { projectId, users } = req.body;
         const loggedInUser = await userModel.findOne({ email: req.user.email });
         const project = await projectService.addUsersToProject({ projectId, users, userId: loggedInUser._id });
+        emitProjectListUpdate(req, users);
+        return res.status(200).json({ project });
+    } catch (err) {
+        logError(err);
+        res.status(400).json({ error: err.message });
+    }
+};
+
+export const removeUserFromProject = async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+    try {
+        const { projectId, collaboratorId } = req.body;
+        const loggedInUser = await userModel.findOne({ email: req.user.email });
+        const project = await projectService.removeUserFromProject({
+            projectId,
+            collaboratorId,
+            userId: loggedInUser._id
+        });
+        emitProjectListUpdate(req, [ collaboratorId ]);
         return res.status(200).json({ project });
     } catch (err) {
         logError(err);

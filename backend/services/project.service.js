@@ -18,6 +18,24 @@ const assertProjectOwner = async ({ projectId, userId }) => {
     return project;
 };
 
+const getDocumentId = (document) => (document?._id || document)?.toString();
+
+const formatProjectForUser = (project, userId) => {
+    const formattedProject = typeof project.toObject === 'function'
+        ? project.toObject()
+        : project;
+    const ownerId = getDocumentId(formattedProject.createdBy);
+    const currentUserId = userId.toString();
+
+    return {
+        ...formattedProject,
+        role: ownerId === currentUserId ? 'owner' : 'collaborator',
+        collaboratorCount: (formattedProject.users || [])
+            .filter((projectUser) => getDocumentId(projectUser) !== ownerId)
+            .length
+    };
+};
+
 export const createProject = async ({ name, userId }) => {
     if (!name) {
         throw new Error('Name is required');
@@ -42,13 +60,12 @@ export const createProject = async ({ name, userId }) => {
             createdBy: userId
         });
     } catch (error) {
-        console.error('Error creating project:', error);
         if (error.code === 11000) {
             throw new Error('You already have a project with this name');
         }
         throw error;
     }
-    return project;
+    return formatProjectForUser(project, userId);
 };
 
 export const getAllProjectByUserId = async ({ userId }) => {
@@ -58,7 +75,7 @@ export const getAllProjectByUserId = async ({ userId }) => {
     const allUserProjects = await projectModel.find({ users: userId })
         .populate('createdBy', 'email')
         .populate('users', 'email');
-    return allUserProjects;
+    return allUserProjects.map((project) => formatProjectForUser(project, userId));
 };
 
 export const addUsersToProject = async ({ projectId, users, userId }) => {
@@ -86,7 +103,41 @@ export const addUsersToProject = async ({ projectId, users, userId }) => {
         { $addToSet: { users: { $each: users } } },
         { new: true }
     ).populate('createdBy', 'email').populate('users', 'email');
-    return updatedProject;
+    return formatProjectForUser(updatedProject, userId);
+};
+
+export const removeUserFromProject = async ({ projectId, collaboratorId, userId }) => {
+    if (!projectId) {
+        throw new Error('projectId is required');
+    }
+    if (!mongoose.Types.ObjectId.isValid(projectId)) {
+        throw new Error('Invalid projectId');
+    }
+    if (!collaboratorId) {
+        throw new Error('collaboratorId is required');
+    }
+    if (!mongoose.Types.ObjectId.isValid(collaboratorId)) {
+        throw new Error('Invalid collaboratorId');
+    }
+    if (!userId) {
+        throw new Error('userId is required');
+    }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+        throw new Error('Invalid userId');
+    }
+
+    const project = await assertProjectOwner({ projectId, userId });
+    if (project.createdBy.toString() === collaboratorId.toString()) {
+        throw new Error('Project owner cannot be removed');
+    }
+
+    const updatedProject = await projectModel.findOneAndUpdate(
+        { _id: projectId },
+        { $pull: { users: collaboratorId } },
+        { new: true }
+    ).populate('createdBy', 'email').populate('users', 'email');
+
+    return formatProjectForUser(updatedProject, userId);
 };
 
 export const getProjectById = async ({ projectId, userId }) => {
@@ -108,7 +159,7 @@ export const getProjectById = async ({ projectId, userId }) => {
     if (!project) {
         throw new Error('User not belong to this project');
     }
-    return project;
+    return formatProjectForUser(project, userId);
 };
 
 export const updateFileTree = async ({ projectId, fileTree, userId }) => {
@@ -133,7 +184,7 @@ export const updateFileTree = async ({ projectId, fileTree, userId }) => {
         { fileTree },
         { new: true }
     ).populate('createdBy', 'email').populate('users', 'email');
-    return project;
+    return formatProjectForUser(project, userId);
 };
 
 export const deleteProject = async ({ projectId, userId }) => {
@@ -153,7 +204,5 @@ export const deleteProject = async ({ projectId, userId }) => {
 
 // Helper function to clear all projects (for development)
 export const deleteAllProjects = async () => {
-    const result = await projectModel.deleteMany({});
-    console.log('Deleted all projects:', result);
-    return result;
+    return projectModel.deleteMany({});
 };

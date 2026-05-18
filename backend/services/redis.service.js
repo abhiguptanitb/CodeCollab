@@ -21,9 +21,8 @@ const redisClient = process.env.NODE_ENV === 'test'
         password: process.env.REDIS_PASSWORD
     });
 
-
 redisClient.on('connect', () => {
     console.log('Redis connected');
-})
+});
 
 export default redisClient;

@@ -20,7 +20,9 @@ app.use(cors({
     origin: corsOrigin,
     credentials: corsOrigin !== '*'
 }));
-app.use(morgan('dev'));
+if (process.env.NODE_ENV === 'development') {
+    app.use(morgan('dev'));
+}
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

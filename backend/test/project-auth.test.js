@@ -76,6 +76,100 @@ test('project owner can add collaborators while collaborators cannot manage owne
         });
 });
 
+test('project list marks owned and collaborated projects with correct roles', async () => {
+    const owner = await register('owner@example.com');
+    const collaborator = await register('collab@example.com');
+
+    const ownerProjectResponse = await request(app)
+        .post('/projects/create')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ name: 'Owner Project' })
+        .expect(201);
+
+    await request(app)
+        .post('/projects/create')
+        .set('Authorization', `Bearer ${collaborator.token}`)
+        .send({ name: 'Collaborator Project' })
+        .expect(201);
+
+    await request(app)
+        .put('/projects/add-user')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ projectId: ownerProjectResponse.body._id, users: [ collaborator.user._id ] })
+        .expect(200);
+
+    await request(app)
+        .get('/projects/all')
+        .set('Authorization', `Bearer ${collaborator.token}`)
+        .expect(200)
+        .expect((response) => {
+            const projectsByName = new Map(response.body.projects.map((project) => [ project.name, project ]));
+
+            assert.equal(projectsByName.get('Owner Project').role, 'collaborator');
+            assert.equal(projectsByName.get('Owner Project').collaboratorCount, 1);
+            assert.equal(projectsByName.get('Collaborator Project').role, 'owner');
+            assert.equal(projectsByName.get('Collaborator Project').collaboratorCount, 0);
+        });
+});
+
+test('project owner can remove collaborators and removed users lose project access', async () => {
+    const owner = await register('owner@example.com');
+    const collaborator = await register('collab@example.com');
+    const secondCollaborator = await register('second@example.com');
+
+    const createResponse = await request(app)
+        .post('/projects/create')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ name: 'Removable Workspace' })
+        .expect(201);
+
+    const projectId = createResponse.body._id;
+
+    await request(app)
+        .put('/projects/add-user')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ projectId, users: [ collaborator.user._id, secondCollaborator.user._id ] })
+        .expect(200);
+
+    await request(app)
+        .put('/projects/remove-user')
+        .set('Authorization', `Bearer ${collaborator.token}`)
+        .send({ projectId, collaboratorId: secondCollaborator.user._id })
+        .expect(400)
+        .expect((response) => {
+            assert.equal(response.body.error, 'Only project owner can perform this action');
+        });
+
+    await request(app)
+        .put('/projects/remove-user')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ projectId, collaboratorId: owner.user._id })
+        .expect(400)
+        .expect((response) => {
+            assert.equal(response.body.error, 'Project owner cannot be removed');
+        });
+
+    await request(app)
+        .put('/projects/remove-user')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ projectId, collaboratorId: collaborator.user._id })
+        .expect(200)
+        .expect((response) => {
+            const userIds = response.body.project.users.map((projectUser) => projectUser._id);
+            assert.equal(userIds.includes(owner.user._id), true);
+            assert.equal(userIds.includes(secondCollaborator.user._id), true);
+            assert.equal(userIds.includes(collaborator.user._id), false);
+        });
+
+    await request(app)
+        .get(`/projects/get-project/${projectId}`)
+        .set('Authorization', `Bearer ${collaborator.token}`)
+        .expect(400)
+        .expect((response) => {
+            assert.equal(response.body.error, 'User not belong to this project');
+        });
+});
+
 test('collaborators can open projects and update files, outsiders cannot', async () => {
     const owner = await register('owner@example.com');
     const collaborator = await register('collab@example.com');
