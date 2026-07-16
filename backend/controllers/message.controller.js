@@ -1,12 +1,6 @@
 import userModel from '../models/user.model.js';
 import * as messageService from '../services/message.service.js';
 
-const logError = (err) => {
-    if (process.env.NODE_ENV !== 'test') {
-        console.error(err.message);
-    }
-};
-
 export const getProjectMessages = async (req, res) => {
     try {
         const loggedInUser = await userModel.findOne({ email: req.user.email });
@@ -18,7 +12,7 @@ export const getProjectMessages = async (req, res) => {
 
         return res.status(200).json({ messages });
     } catch (err) {
-        logError(err);
+        console.error(err.message);
         return res.status(400).json({ error: err.message });
     }
 };

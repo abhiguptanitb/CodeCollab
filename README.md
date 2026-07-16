@@ -101,34 +101,40 @@ WebContainer runs generated projects directly in the browser:
 ## Architecture
 
 ```text
-                           +-------------------------+
-                           |        Frontend         |
-                           | React + Vite + Tailwind |
-                           +-----------+-------------+
-                                       |
-                  +--------------------+--------------------+
-                  |                                         |
-                  v                                         v
-          HTTP REST APIs                          Socket.IO realtime
-    auth, projects, messages, AI          chat, file sync, project updates
-                  |                                         |
-                  +--------------------+--------------------+
-                                       |
-                           +-----------v-------------+
-                           |      Express Server     |
-                           | REST API + Socket.IO    |
-                           +-----------+-------------+
-                                       |
-                  +--------------------+--------------------+
-                  |                                         |
-                  v                                         v
-           MongoDB + Mongoose                         Redis / ioredis
-    users, projects, messages              logout token blacklist
++---------------------------------------------------------------------+
+|                            Browser Client                           |
+| React + Vite + Tailwind                                             |
+|                                                                     |
+| Home: project list + collaborator updates                           |
+| Project workspace: chat, CodeMirror editor, file tree, preview      |
+| WebContainer: mounts fileTree, installs deps, runs npm start        |
++---------------+-------------------------------+---------------------+
+                |                               |
+                | JWT-protected HTTP            | Authenticated Socket.IO
+                | Axios requests                | project/user rooms
+                v                               v
++---------------------------------------------------------------------+
+|                         Node + Express Server                       |
+|                                                                     |
+| app.js: middleware, CORS/COOP/COEP headers, route mounting          |
+| server.js: HTTP server, Socket.IO auth, project room events         |
+|                                                                     |
+| Routes -> Controllers -> Services -> Mongoose Models                |
+| users, projects, messages, AI                                       |
++---------------+-----------------------+-------------------+---------+
+                |                       |                   |
+                v                       v                   v
++-------------------------+ +---------------------+ +-----------------+
+| MongoDB + Mongoose      | | Redis + ioredis     | | Google Gemini   |
+| users                   | | logout token        | | @ai prompt      |
+| projects + fileTree     | | blacklist           | | response +      |
+| project messages        | |                     | | file generation |
++-------------------------+ +---------------------+ +-----------------+
 
-                  +-----------------------------------------+
-                  | Google Gemini: AI file generation       |
-                  | WebContainer: browser runtime preview   |
-                  +-----------------------------------------+
+Realtime flow:
+Client joins user room and, inside a project, the project room.
+Socket events persist chat messages, trigger Gemini on `@ai`, save `fileTree`,
+and broadcast `project-message`, `file-tree-updated`, and `projects-changed`.
 ```
 
 ## Tech Stack

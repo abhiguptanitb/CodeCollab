@@ -2,12 +2,6 @@ import * as projectService from '../services/project.service.js';
 import userModel from '../models/user.model.js';
 import { validationResult } from 'express-validator';
 
-const logError = (err) => {
-    if (process.env.NODE_ENV !== 'test') {
-        console.error(err.message);
-    }
-};
-
 const emitProjectListUpdate = (req, userIds = []) => {
     const io = req.app.get('io');
     if (!io) {
@@ -31,7 +25,7 @@ export const createProject = async (req, res) => {
         const newProject = await projectService.createProject({ name, userId });
         res.status(201).json(newProject);
     } catch (err) {
-        logError(err);
+        console.error(err.message);
         res.status(400).send(err.message);
     }
 };
@@ -42,7 +36,7 @@ export const getAllProject = async (req, res) => {
         const allUserProjects = await projectService.getAllProjectByUserId({ userId: loggedInUser._id });
         return res.status(200).json({ projects: allUserProjects }); 
     } catch (err) {
-        logError(err);
+        console.error(err.message);
         res.status(400).json({ error: err.message });
     }
 };
@@ -59,7 +53,7 @@ export const addUserToProject = async (req, res) => {
         emitProjectListUpdate(req, users);
         return res.status(200).json({ project });
     } catch (err) {
-        logError(err);
+        console.error(err.message);
         res.status(400).json({ error: err.message });
     }
 };
@@ -80,7 +74,7 @@ export const removeUserFromProject = async (req, res) => {
         emitProjectListUpdate(req, [ collaboratorId ]);
         return res.status(200).json({ project });
     } catch (err) {
-        logError(err);
+        console.error(err.message);
         res.status(400).json({ error: err.message });
     }
 };
@@ -92,7 +86,7 @@ export const getProjectById = async (req, res) => {
         const project = await projectService.getProjectById({ projectId, userId: loggedInUser._id });
         return res.status(200).json({ project });
     } catch (err) {
-        logError(err);
+        console.error(err.message);
         res.status(400).json({ error: err.message });
     }
 };
@@ -108,7 +102,7 @@ export const updateFileTree = async (req, res) => {
         const project = await projectService.updateFileTree({ projectId, fileTree, userId: loggedInUser._id });
         return res.status(200).json({ project });
     } catch (err) {
-        logError(err);
+        console.error(err.message);
         res.status(400).json({ error: err.message });
     }
 };
@@ -121,7 +115,7 @@ export const deleteProject = async (req, res) => {
         await projectService.deleteProject({ projectId, userId });
         return res.status(200).json({ message: 'Project deleted successfully' });
     } catch (err) {
-        logError(err);
+        console.error(err.message);
         res.status(400).json({ error: err.message });
     }
 };
