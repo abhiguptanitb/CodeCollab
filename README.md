@@ -101,41 +101,68 @@ WebContainer runs generated projects directly in the browser:
 ## Architecture
 
 ```text
-+---------------------------------------------------------------------+
-|                            Browser Client                           |
-| React + Vite + Tailwind                                             |
-|                                                                     |
-| Home: project list + collaborator updates                           |
-| Project workspace: chat, CodeMirror editor, file tree, preview      |
-| WebContainer: mounts fileTree, installs deps, runs npm start        |
-+---------------+-------------------------------+---------------------+
-                |                               |
-                | JWT-protected HTTP            | Authenticated Socket.IO
-                | Axios requests                | project/user rooms
-                v                               v
-+---------------------------------------------------------------------+
-|                         Node + Express Server                       |
-|                                                                     |
-| app.js: middleware, CORS/COOP/COEP headers, route mounting          |
-| server.js: HTTP server, Socket.IO auth, project room events         |
-|                                                                     |
-| Routes -> Controllers -> Services -> Mongoose Models                |
-| users, projects, messages, AI                                       |
-+---------------+-----------------------+-------------------+---------+
-                |                       |                   |
-                v                       v                   v
-+-------------------------+ +---------------------+ +-----------------+
-| MongoDB + Mongoose      | | Redis + ioredis     | | Google Gemini   |
-| users                   | | logout token        | | @ai prompt      |
-| projects + fileTree     | | blacklist           | | response +      |
-| project messages        | |                     | | file generation |
-+-------------------------+ +---------------------+ +-----------------+
+                                      +--------------------------------------+
+                                      |              Frontend                |
+                                      |      React + Vite + Tailwind CSS     |
+                                      | Login/Register/Home/Project screens  |
+                                      +------------------+-------------------+
+                                                         |
+                           HTTP APIs + JWT bearer token  |  Socket.io client
+                                                         |
+                 +---------------------------------------+---------------------------------------+
+                 |                                                                               |
+                 v                                                                               v
++-------------------------------+                                      +----------------------------------+
+|        Express REST API        |                                      |        Socket.io Realtime        |
+| CORS / Cookies / JSON / Morgan |                                      | JWT handshake + project rooms    |
++---------------+---------------+                                      +----------------+-----------------+
+                |                                                                       |
+                |                                                                       |
+   +------------+-------------+------------------+------------------+                  |
+   |                          |                  |                  |                  |
+   v                          v                  v                  v                  v
++--------------+       +--------------+   +--------------+   +--------------+   +------------------+
+| User Module  |       |Project Module|   |Message Module|   |  AI Module   |   | Collaboration    |
+| Register     |       | Create/list  |   | Chat history |   | Gemini API   |   | project-message  |
+| Login/JWT    |       | Collaborators|   | Project feed |   | @ai prompts  |   | file-tree-save   |
+| Profile/all  |       | File tree    |   | AI/user msgs |   | Code output  |   | file-tree-update |
++------+-------+       +------+-------+   +------+-------+   +------+-------+   +--------+---------+
+       |                      |                  |                  |                    |
+       |                      |                  |                  |                    |
+       v                      v                  v                  v                    v
++-----------------------------------------------------------------------------------------------+
+|                                      Backend Services                                          |
+| user.service.js | project.service.js | message.service.js | ai.service.js | redis.service.js   |
++----------------------------+-----------------------------+----------------+---------------------+
+                             |                             |                |
+                             |                             |                |
+                +------------+-------------+               |                |
+                |                          |               |                |
+                v                          v               v                v
+        +---------------+          +---------------+  +---------------+  +----------------------+
+        | MongoDB users |          |MongoDB projects|  |MongoDB msgs   |  | Redis token/session  |
+        | email/password|          |users/fileTree  |  |project chat   |  | cache / blacklist    |
+        +---------------+          +-------+-------+  +---------------+  +----------------------+
+                                           ^
+                                           |
+                         file-tree updates from AI and collaborators
+                                           |
+                                           v
+                                      +----+-------------------------------+
+                                      | Browser WebContainer Runtime       |
+                                      | Mount fileTree / npm install/start |
+                                      | Live iframe preview inside project |
+                                      +------------------------------------+
 
-Realtime flow:
-Client joins user room and, inside a project, the project room.
-Socket events persist chat messages, trigger Gemini on `@ai`, save `fileTree`,
-and broadcast `project-message`, `file-tree-updated`, and `projects-changed`.
+External Providers:
+  - Google Generative AI powers the @ai assistant and generated fileTree responses.
+  - MongoDB stores users, projects, collaborators, file trees, and messages.
+  - Redis supports token/session-related backend state.
 ```
+
+CodeCollab is best represented as a modular full-stack collaboration platform. The frontend handles authentication, project navigation, realtime team chat, code editing, and browser-based app preview through WebContainer. The backend is one Express application split into route/controller/service modules for users, projects, messages, and AI.
+
+REST APIs handle login, registration, project management, collaborator management, message history, and file-tree persistence. Socket.io handles realtime project rooms, chat broadcasts, AI-triggered responses, and live file-tree synchronization between collaborators.
 
 ## Tech Stack
 
